@@ -1,237 +1,228 @@
-# Gecko — Initial Concept Map
+# Gecko — Concept Map
 
-Version 0.1 · October 4, 2026
+Version 0.2 · October 5, 2026 · [Русский](concepts.ru.md)
 
-This document establishes a shared vocabulary for designing the first versions of Gecko. It describes entities and their relationships. Specific APIs, configuration formats, process organization, and control algorithms will be chosen separately.
+This document establishes a shared vocabulary for designing the first versions of Gecko. The concepts correspond to observable execution boundaries: devices, processing chains, and independent services. API formats, configuration formats, and concrete implementation mechanisms will be chosen separately.
 
-The source is the ChatGPT conversation [“Gecko and Kubernetes Comparison”](https://chatgpt.com/g/g-p-6a1ac79a34548191ac02427895e5a00f/c/6ac20d5b-1eb4-83eb-8543-d13148c2f8e1), originally titled “Сравнение Gecko и Kubernetes,” in the project named **Gecko** at the time of reading. The request referred to it as Gocker. The final vocabulary and later clarifications take precedence over earlier, broader assumptions.
+The sources are the conversations [“Gecko and Kubernetes Comparison”](https://chatgpt.com/g/g-p-6a1ac79a34548191ac02427895e5a00f/c/6ac20d5b-1eb4-83eb-8543-d13148c2f8e1), [“Pipeline Architecture”](https://chatgpt.com/c/6ac273bd-a1c0-83eb-8759-4d3000c859d8), and subsequent vocabulary refinements in this chat. Line and Block restore a simple execution model; Point denotes a logical group within a Line.
 
-**Status:** a working conceptual framework, rather than a description of implemented capabilities. The seven core terms come from the conversation's final table. The explanations below organize the discussion; recommendations for early versions and open questions are identified separately.
+**Status:** an agreed working framework for design. It does not describe implemented capabilities. Automatic placement, migration, load balancing, and seamless failover remain possible directions for future development.
 
 ## 1. Core Idea
 
-The user builds an **App** from functional **Points** connected by **Edges**. Instances of **Gecko** on different devices provide the execution environment. They form a **Mesh** and advertise their **Axes**, or capabilities. The logical application is materialized as concrete **Processes** and connection mechanisms on suitable Gecko instances.
+A Gecko instance runs on a particular device, advertises available Axes, and manages Lines and Blocks placed on it. Gecko instances that can reach one another form a Mesh.
 
-The model has two main views:
-
-- **What the application should do:** Points and Edges within an App.
-- **Where and how it runs:** Gecko instances, their Axes, Processes, and concrete connection implementations.
-
-Placement and materialization decisions connect these views. These decisions can initially be made manually; the conceptual model does not require an automatic scheduler.
-
-## 2. Seven Core Terms
-
-| Term | Definition | Example |
-|---|---|---|
-| **Gecko** | A running instance of the Gecko runtime on a particular machine or device. | `jetson-01`, `gpu-01`, `desktop-01` |
-| **Mesh** | A collection of Gecko instances that have discovered one another and can interact. | A Jetson, GPU server, and desktop that can reach one another |
-| **App** | A logical application described through functional elements and their connections. | An inspection application with a camera, analysis, viewing, and threshold control |
-| **Point** | An addressable functional element of an App. Its name describes its place in the composition, rather than its size or complexity. | `Camera`, `Inference`, `Recorder`, `Slider`, `VideoView` |
-| **Edge** | A logical connection between the interfaces of two Points. | `Camera.video → Inference.video` |
-| **Axis** | A capability that a Gecko instance advertises externally. The plural is **Axes**. | `camera`, `cuda`, `tensorrt`, `ui.slider`, `storage` |
-| **Process** | An actual operating system process involved in executing the application. | A process containing a GStreamer pipeline; a desktop UI process |
-
-Here, “the Gecko project” refers to the entire system, while “a Gecko instance” refers to a particular runtime. A machine and a Gecko instance are also distinct: the machine provides the environment, and Gecko runs within it. This document does not yet constrain the number of instances on one machine.
-
-### Reading Earlier Discussions
-
-| Earlier Name | Current Term |
-|---|---|
-| Gecko Node / runtime node | **Gecko** |
-| Gecko Mesh | **Mesh** |
-| Graph, when referring to the application description | **App**; a graph describes its structure |
-| Component / Graph Node / Dot | **Point** |
-| Connection | **Edge** |
-| Capability | **Axis** |
-| OS process | **Process** |
-
-Use “node” with care: a runtime instance is a Gecko, while an element of the logical graph is a Point.
-
-## 3. Relationship Map
-
-```mermaid
-flowchart TB
-    App[App] -->|contains| Point[Points]
-    App -->|contains| Edge[Edges]
-    Edge -->|connect interfaces of| Point
-    Mesh[Mesh] -->|includes| Gecko[Gecko instances]
-    Gecko -->|advertise| Axis[Axes]
-    Gecko -->|execution environment for| Process[Processes]
-    Point -.->|requirements matched against| Axis
-    Point -.->|materialized in| Process
-```
-
-Solid arrows show structure and membership. Dashed arrows show relationships that must be resolved when preparing execution.
-
-**App and Mesh are distinct.** An App describes the task; a Mesh describes the available environment. Discovering another Gecko expands the available capabilities, but does not by itself connect Points or rebuild a running App.
-
-**Point, Process, and Gecko have different boundaries.** Several Points can run within one Process. Several Processes and pipelines can run on one Gecko. A composite Point can hide internal processing; a distributed implementation of such a Point remains a possible extension rather than a requirement for the first version.
-
-## 4. What a Point Describes
-
-The discussion identified four groups of properties for a functional element:
-
-| Property | Question It Answers | Inference Example |
-|---|---|---|
-| Inputs | What does the Point receive? | Video; a threshold control value |
-| Outputs | What does the Point produce? | Detection results |
-| Parameters | How is its behavior configured? | A model reference; an initial threshold |
-| Requirements | Which capabilities does the chosen implementation need? | A supported inference backend |
-
-This describes responsibilities rather than a finished data schema. In particular, whether an adjustable threshold is a parameter with separate control or a full graph input remains to be decided.
-
-A Point can represent a source, computation, recording, control, or display. A `Slider` produces a value, a `Button` produces an event, and a `VideoView` receives video. Including them in an App allows computation and user interaction to be described in the same vocabulary.
-
-A large `Inference Point` may contain preprocessing, a model, and postprocessing. Whether and how to expose its internals as a subgraph is a separate decision. The enclosing App only needs a clear interface.
-
-A **port** below means a named input or output of a Point. It is a supporting term for describing an interface, rather than an eighth core entity or a promise of a universal `Input<T>` API.
-
-## 5. Edges and Connection Support
-
-An Edge expresses intent, such as sending video from Camera to Inference. The actual transfer mechanism depends on the chosen Point implementations and execution boundaries.
-
-Four contexts are useful to distinguish:
-
-| Context | What Must Be Confirmed |
-|---|---|
-| One pipeline | Can the required elements be connected within it? |
-| One Process | Is there a way to connect the implementations within a shared address space? |
-| Separate Processes on one machine | Is there a suitable mechanism for interprocess communication? |
-| Separate machines | Is there an implemented network path with suitable properties? |
-
-Support in one context does not imply support in the others. Matching type names is also insufficient: data format, memory, codec, and other implementation requirements must be considered.
-
-An important clarification from the conversation is that **`unsupported connection` is a valid validation result**. For example, two plugins might only connect within a single pipeline. Placing them on separate machines is then impossible; even a shared machine may be insufficient if they require a shared Process.
-
-Three outcomes should be distinguished:
-
-- **Supported:** a concrete mechanism can materialize the connection in the chosen context.
-- **Unsupported:** no such mechanism exists; placement or implementations must change.
-- **Supported, but conditions are unsuitable:** the mechanism exists, but measured bandwidth or latency does not meet the task's requirements.
-
-An unperformed check means “not checked.” It does not confirm that the connection will work. Network measurements also have a time and conditions of measurement: a test result does not guarantee connection quality indefinitely.
-
-Zenoh was discussed as a foundation for discovery, state exchange, control, and suitable data. A specific RTSP/RTP path was considered separately for video between machines. Transport choices still need to be confirmed through implementation for each case; universal transmission of every Edge through Zenoh has not been established.
-
-## 6. Axis: Capability and Requirement
-
-A Gecko instance inspects its local environment and advertises available capabilities. A Point states what its implementation requires. Matching the two helps determine valid placement.
-
-```text
-desktop-01 advertises: ui.slider, ui.video_view
-Slider requires:      ui.slider
-VideoView requires:   ui.video_view
-```
-
-Axis means capability here. The geometric name does not require a numerical scale; a separate Coordinate term is not needed yet.
-
-**Capability and current availability are distinct.** Having CUDA or TensorRT does not establish that enough GPU memory is free for the chosen model. Having a camera does not confirm access to it at launch time. Axes, current resource state, and App requirements therefore need to be considered separately. Their exact representation remains open.
-
-## 7. Desktop in the Shared Model
-
-A desktop participating in App execution is another Gecko instance in the Mesh. It advertises UI capabilities and can materialize a Slider, Button, or VideoView. A device does not receive a special type merely because it is a laptop, Jetson, or server: its capabilities determine what it can do.
-
-Two desktop interface modes were discussed:
-
-| Mode | Audience and Purpose |
-|---|---|
-| **Admin / Editor** | An engineer discovers Gecko instances, inspects Axes, checks connections, builds an App, and diagnoses execution. |
-| **Operator Interface** | A user sees video and the controls needed for the running App. |
-
-These are interface roles rather than new App or Gecko types. An administrator role also does not follow automatically from having a `ui` Axis: control permissions must be designed separately.
-
-If a desktop hosts Points belonging to a running App, its disappearance affects those Points. What happens to the remaining processing—continuing, stopping, or entering another state—depends on App policy. Automatic independence from closing the desktop is not yet guaranteed.
-
-## 8. One App, Different Executions
-
-Consider an inspection application:
+An App combines Lines, the Blocks they use, connections, and a user interface. A Line consists of Points and has a shared lifecycle. A Block provides an independent service that multiple Lines can use.
 
 ```text
 App: inspection
 
-Camera.video ───────→ Inference.video
-Inference.detections → VideoView.detections
-Camera.video ───────→ VideoView.video
-Slider.value ──────→ Inference.threshold
+Line front_camera ─┐
+                   ├──→ Block inference
+Line back_camera ──┘
+
+Inside front_camera:
+Source Point → Inference Point → Tracking Point → Output Point
 ```
 
-These are illustrative interface names rather than an approved API. Video, metadata, and the control value are deliberately shown separately.
+An App describes the overall system. Lines and Blocks denote concrete managed execution units. Points describe the internal functional structure of a Line.
 
-### Local Variant from the Discussion
+## 2. Eight Core Terms
+
+| Term | Definition | Practical Boundary |
+|---|---|---|
+| **Gecko** | A running runtime instance on a particular machine or device. | Advertises capabilities and manages local Lines and Blocks. |
+| **Mesh** | A collection of Gecko instances that have discovered one another and can interact. | The available environment; a new participant does not automatically rebuild an App. |
+| **App** | A composition of Lines, Blocks, Edges, and a user interface that serves a task. | Can span several Gecko instances; has explicit membership and dependencies. |
+| **Line** | A named processing chain of Points with shared configuration, lifecycle, and diagnostics. | When running, executes in one dedicated process on one Gecko. |
+| **Point** | An addressable logical processing group within a Line. | Has interfaces, parameters, results, and metrics; this does not imply an independent process or restart. |
+| **Block** | An independent service with its own interface, configuration, and lifecycle. | Can serve several Lines; a Gecko-managed Block executes in a dedicated process. |
+| **Edge** | A logical connection between a specific output and input. | Connects Point interfaces within a Line, or exposed Line and Block interfaces at App level. |
+| **Axis** | An execution capability advertised by a Gecko instance. The plural is **Axes**. | Matched against the requirements of selected Point and Block implementations. |
+
+“The Gecko project” refers to the whole system, while “a Gecko instance” refers to a particular runtime. A machine provides the environment for Gecko. This document does not constrain the number of instances on one machine.
+
+The geometric names reflect structure: a Point is a functional point within a Line; a Line is a processing chain; a Block is an independent service unit; an Edge is a connection. The vocabulary uses Point. Dot is not introduced as a separate entity.
+
+## 3. Structure and Execution Boundaries
+
+```mermaid
+flowchart TB
+    App[App] -->|includes| Line[Lines]
+    App -->|uses| Block[Blocks]
+    App -->|describes| Edge[Edges]
+    App -->|includes| UI[User interface]
+    Line -->|contains| Point[Points]
+    Mesh[Mesh] -->|includes| Gecko[Gecko instances]
+    Gecko -->|advertises| Axis[Axes]
+    Gecko -->|manages local| Line
+    Gecko -->|manages local| Block
+    Point -.->|requires| Axis
+    Block -.->|requires| Axis
+```
+
+A Line has an explicit boundary: one Gecko and one dedicated process during execution. Placement applies to the whole Line. Its Points cannot independently move to other machines without changing the execution structure.
+
+**One source → one Line is the default policy.** A source can be a camera, file, or another supported source. Multiple inputs within one Line are possible when that scenario is explicitly supported; this is not a commitment for the first version.
+
+An independent service is represented as a Block. Sharing a Block does not merge Lines or change their restart boundaries.
+
+UI elements belong to the App's interface. Slider, Button, and VideoView are not processing Points within a Line. They connect to accessible interfaces and parameters of Lines, their Points, and Blocks. The dedicated-process rule for a Line or Block does not apply to each UI element.
+
+## 4. A Line and Its Points
+
+A Line is the main operational unit for processing: `start`, `stop`, `pause`, `resume`, `reload`, `restart`, state, health, and logs. Operation availability and exact semantics depend on the implementation.
+
+A Point groups elements that implement one understandable function:
 
 ```text
-Gecko: jetson-01
-└── Process A
-    └── GStreamer pipeline
-        ├── Camera Point
-        └── Inference Point
-
-Gecko: desktop-01
-└── Process B
-    ├── VideoView Point
-    └── Slider Point
+Inference Point
+├── preprocessing
+├── inference client or local inference
+└── postprocessing
 ```
 
-Camera and Inference are implemented within one pipeline and Process. Separately supported paths for video, results, and control are needed between the Jetson and desktop. The presence of one path does not establish support for the others.
+A Point can be complex and composite, but remains within its Line. It does not hide additional independent Lines or Blocks. If its function uses a remote service, that dependency is displayed explicitly.
 
-### Remote Inference Variant
+| Point Property | Example |
+|---|---|
+| Inputs and outputs | Video input, detections output |
+| Parameters | Model, threshold |
+| Implementation requirements | A supported inference backend |
+| Diagnostics | Latency, errors, input and output previews |
+
+Point addressability allows changing `front_camera.detector.threshold` or inspecting its metrics. It does not imply an independent `restart(detector)`. A change may apply while running or require rebuilding or restarting the Line; this must be visible before applying it.
+
+A Line and a GStreamer pipeline also describe different levels. A Line is a Gecko object with a stable name and lifecycle; a GStreamer pipeline is a concrete implementation of its processing. They may correspond directly in the first scenarios.
+
+## 5. Blocks and Shared Use
+
+A Block has its own lifecycle and can serve multiple consumers. Examples include a shared inference server or a storage service. An App records its dependency on a Block; this does not imply exclusive ownership of the service.
 
 ```text
-jetson-01                gpu-01                 desktop-01
-Camera ── video ───────→ Inference ── metadata → VideoView
-   └──────────────────── video ───────────────→ VideoView
-                         Inference ←── value ── Slider
+Line front_camera → Inference Point ─┐
+                                    ├──→ Block inference
+Line back_camera  → Inference Point ─┘
 ```
 
-This variant is valid only if suitable Axes and implementations exist for every Edge crossing machine boundaries. RTSP/RTP was proposed for video in the discussion; the specific codec, network endpoints, and constraints still need to be chosen and checked.
+Each Line has its own Inference Point that prepares requests and receives responses. The shared Block performs computation. Restarting one Line should not by itself restart the shared Block. Restarting or losing the Block can affect every dependent Line.
 
-The App's logical purpose remains the same while its physical implementation changes. Separate decoder, encoder, and network elements may be needed internally even if the user did not draw them as individual Points.
+There are two ways to connect a Block:
 
-## 9. Intended Workflow
+- **Managed:** Gecko starts and stops the service in a dedicated process and provides state and diagnostics.
+- **External:** the App uses an existing service, such as Triton. Gecko does not have to own its process or provide restart operations for it.
 
-This is the target workflow from the conversation, rather than a list of implemented features:
+These modes do not require additional core terms. The interface must show which management operations are available and which Lines depend on the Block.
 
-1. The user starts Gecko on available devices.
-2. Gecko instances inspect their environments and advertise Axes; the desktop discovers available Mesh participants.
-3. The engineer sees capabilities and possible connection mechanisms; relevant network paths are tested.
-4. A concrete App is assembled from Points and Edges in the Editor.
-5. Point placement, grouping into Processes, and Edge materialization mechanisms are chosen.
-6. Point requirements, connection support, and execution conditions are checked; limitations are explained.
-7. The App starts. The operator receives the task interface, while the engineer receives state and diagnostics.
+## 6. Edges and Many-to-Many Connections
 
-Discovery, connection selection, and execution are separate actions. The appearance of two compatible participants does not mean they should connect themselves to one another.
+**Each Edge connects one specific output to one specific input.** Multiple Edges form a many-to-many topology: one Line can use several Blocks, and one Block can serve several Lines.
 
-## 10. How the Kubernetes Comparison Fits
+Within a Line, Edges connect Point interfaces. At App level, they connect exposed Line and Block interfaces. For example, `front_camera.video` may expose a selected video output of its Source Point. An external connection does not change the Point's membership in its Line.
 
-In the source conversation, the comparison helped define Gecko's domain: managing a media/AI application with an understanding of streams, processing, results, and connections. Managing process startup and state is part of this task, but does not describe the whole task on its own.
+Fan-out, multiple senders to one input, and stream mixing require support from the corresponding interfaces. They cannot be inferred from the shape of the graph alone.
 
-For this concept map, Kubernetes remains a possible execution environment for part of the system. Gecko's terms are defined through the user's task and the structure of the App; no direct correspondence between a Point and a Pod, or between a Mesh and a cluster, is established here.
+An Edge must have a concrete supported implementation mechanism:
 
-Earlier proposals about choosing an available GPU, relocating inference, and automatically rebuilding a pipeline remain **development hypotheses**. The Kubernetes comparison alone does not make them commitments for early versions.
+| Context | What Is Checked |
+|---|---|
+| Between Points in one Line | Implementation compatibility within the shared chain and process |
+| Between Lines or Blocks on one Gecko | An implemented interprocess communication mechanism |
+| Between different Gecko instances | A supported network path, formats, and transfer conditions |
 
-## 11. Guidance for Early Versions
+`unsupported connection` is a valid validation result. Distinguish supported; unsupported; supported but conditions are unsuitable; and not yet checked. Matching types and available Axes do not guarantee a connection.
 
-**Recommendations from this document:**
+Zenoh is considered for discovery, state, control, and suitable data. RTSP/RTP was considered for video between machines. Universal transfer of every Edge through Zenoh is not assumed. Bandwidth and latency measurements are tied to their time and test conditions.
 
-- Describe the logical App separately from its chosen execution, keeping Points distinct from Processes and devices.
-- Explicitly list supported Point and Edge implementations for the first working chain. A concrete `Camera → Inference` within one GStreamer pipeline is a possible starting point.
-- When adding network execution, verify each new path separately and explain `unsupported` before launch.
-- Allow manual placement; add automation after validated compatibility rules exist.
-- Describe UI through Points and Axes, preserving the application's shared vocabulary.
+## 7. Who Advertises Axes
 
-These recommendations provide a way to discuss early decisions. They do not choose a programming language, libraries, SDK, containerization, or module boundaries.
+**Gecko advertises Axes.** Points and Blocks describe the requirements of their selected implementations. A Line's requirements combine those of its Points and internal connections; placement validation considers the whole Line.
+
+```text
+Gecko jetson-01 advertises: camera, gstreamer, tensorrt
+Gecko desktop-01 advertises: ui.slider, ui.video_view
+
+Inference Point requires: a supported inference backend
+Line camera_front requires: capabilities for all its Points
+```
+
+Requirements belong to a particular implementation. An Inference Point with a local model and an Inference Point using a Block may have different requirements. A remote Block does not turn its GPU into a local Axis of another Gecko instance.
+
+Capability and current resource availability are distinct: having TensorRT does not confirm free GPU memory, and having a camera does not confirm access at launch. Resources, dependency availability, and Edge support are checked separately.
+
+## 8. Process Is a Technical Detail
+
+Process is not part of the core domain vocabulary. The execution rules for managed units are:
+
+```text
+1 running Line          → 1 dedicated OS Process
+1 running managed Block → 1 dedicated OS Process
+```
+
+A Line or Block retains its identity across restarts; the PID changes. Configuration and diagnostics belong to the stable name, while the PID is shown as technical information.
+
+```text
+Line camera_front → PID 1234
+       restart
+Line camera_front → PID 5678
+```
+
+`pause` means suspending processing according to runtime rules, rather than necessarily suspending the process through the OS. `reload` means applying configuration and may require a restart. These operations do not promise seamless application of every change.
+
+The dedicated-process rules do not describe the internals of the Gecko runtime itself, desktop UI, or external Blocks. Process isolation also does not remove shared dependencies on devices and services.
+
+## 9. Placement, Distributed Processing, and UX
+
+An App can run across several Gecko instances. Each Line and managed Block is placed entirely on one Gecko. Moving a Point beyond its Line requires an explicit transformation: using a Block or extracting part of the processing into another Line with a supported Edge.
+
+```text
+jetson-01                         gpu-01
+Line capture ── video Edge ───→ Line analysis
+
+or:
+Line camera with Inference Point ──→ Block inference
+```
+
+Both variants must be checked as concrete implementations. One App does not imply a shared process or one atomic pause: an App operation coordinates its participants according to a chosen policy. A shared Block should not automatically stop if other applications use it.
+
+The Editor shows an App with Lines and Blocks. Expanding a Line reveals its Points. Lifecycle and placement are available at Line level; parameters and diagnostics are available at Point level. Required restarts are visible before changes; dependent consumers are visible before restarting a Block.
+
+A desktop participating in an App is also a Gecko with UI Axes. Admin / Editor and the operator screen are interface roles. An operator can see only video and the necessary controls. Administrator permissions do not follow from having a UI Axis.
+
+## 10. Workflow for Early Versions
+
+1. Start Gecko on available devices; discover Mesh participants and their Axes.
+2. Create an App, add Lines and required Blocks, and assemble Points within Lines.
+3. Expose the required interfaces and connect them with Edges; connect the user interface to data and controls.
+4. Select a Gecko for each Line and managed Block, or specify an external Block.
+5. Check requirements, resources, dependencies, and every connection mechanism; explain limitations before launch.
+6. Start the selected units. Show Line and Block state and Point diagnostics.
+7. Apply changes with their scope clearly identified: a Point parameter, a Line restart, or a Block operation.
+
+Manual placement is sufficient for the first version. Discovery alone does not connect participants or rebuild an App. The initial practical scenario is one camera or file, one Line, and one dedicated process; shared inference is added through a Block.
+
+## 11. Changes from Version 0.1
+
+| Previously | Now |
+|---|---|
+| An App is an arbitrary graph of Points | An App is a composition of Lines, Blocks, Edges, and UI |
+| A Point is a functional entity of any scale | A Point is a logical group within a Line with an explicit execution boundary |
+| Points are arbitrarily grouped into Processes | Points are organized into Lines; a Line is the placement and lifecycle unit |
+| Pipeline is an internal detail | Line is the main managed processing chain |
+| Process is a core concept | Process is an execution mechanism and diagnostic detail |
+| Shared services are not distinguished | Block is an independent service with explicit dependencies |
+
+Earlier names Component / Dot correspond to Point only in the context of internal Line processing. Capability corresponds to Axis, and Connection to Edge. Qualify “node”: Gecko is a runtime instance; Point is an element within a Line.
+
+The Kubernetes comparison retains its original meaning: Gecko understands media/AI processing and its connections. Kubernetes can provide an execution environment for part of the system. This map does not establish a direct correspondence between a Line or Block and a Pod.
 
 ## 12. Open Questions
 
-| Question | Decision Needed |
-|---|---|
-| Who owns the App and applies changes? | Editor and runtime responsibilities; whether a controller is needed and what it does |
-| How are Points, Edges, and Axes described? | Identity, interface types, versions, and configuration format |
-| Where are Process boundaries? | Rules for grouping Points, fault isolation, and lifecycle |
-| Which connections belong in the first version? | Specific implementation pairs, contexts, and supported transports |
-| What happens when a Gecko disappears? | Response to loss of camera, compute, or UI; continuation and recovery policy |
-| Which changes can be applied while running? | Parameter updates, branch rebuilding, and Process or App restarts |
-| How are access permissions handled? | Who can discover Gecko instances, start an App, and change control values |
-| When is automatic placement needed? | Metrics, selection criteria, relocation costs, and state preservation rules |
+- Configuration and interface formats, their versions, and identity.
+- Rules for exposing Point interfaces through a Line; the distinction between parameters and control inputs.
+- Concrete Point, Block, and Edge implementations for the first version.
+- Pause/reload semantics, policy for loss of a source, Block, or desktop, and the order of App operations.
+- Shared Block ownership, access by multiple Apps, and control permissions.
+- When automatic placement, migration, load balancing, and recovery are needed.
 
-Automatic load balancing, Point migration, selection of a new App owner, seamless failover, and automatic merging of applications remain outside the established framework. They can be revisited through concrete scenarios and already validated implementations.
+These questions refine implementation while preserving the foundation: Gecko manages Lines and Blocks; Points organize processing within a Line; Edges connect specific interfaces; Axes describe Gecko capabilities.
