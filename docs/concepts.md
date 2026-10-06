@@ -1,6 +1,6 @@
 # Gecko — Concept Map
 
-Version 0.3 · October 5, 2026 · [Русский](concepts.ru.md)
+Version 0.4 · October 6, 2026 · [Русский](concepts.ru.md)
 
 This document establishes a shared vocabulary for designing the first versions of Gecko. The concepts describe devices, concrete execution of processing chains, supported connections, and dependencies on shared services. API formats, configuration formats, and concrete implementation mechanisms will be chosen separately.
 
@@ -12,7 +12,7 @@ The sources are the conversations [“Gecko and Kubernetes Comparison”](https:
 
 A Gecko instance runs on a particular device, advertises available Axes, and manages Lines placed on it. Gecko instances that can reach one another form a Mesh.
 
-An App combines Lines, supported processing connections, dependencies on Blocks, and a user interface. A Line consists of Points and executes in one dedicated process with the Gecko runtime. A Block is a shared service implementing a domain contract understood by Gecko. An Anchor defines a particular Line’s dependency on that service.
+An App combines Lines, supported processing connections, dependencies on Blocks, and Views. A Line consists of Points and executes in one dedicated process with the Gecko runtime. A Block is a shared service implementing a domain contract understood by Gecko. An Anchor defines a particular Line’s dependency on that service. A View presents selected App data, controls, and diagnostics to the user.
 
 ```text
 App: inspection
@@ -26,15 +26,16 @@ Source Point → Inference Point → Tracking Point → Output Point
 
 An App describes the overall system. A Line defines a concrete execution boundary, and Points describe its internal functional structure. A Block denotes a provider of a service capability; an Anchor denotes a Line’s requirements for it. This does not imply ownership of the Block’s process.
 
-## 2. Nine Core Terms
+## 2. Ten Core Terms
 
 | Term | Definition | Practical Boundary |
 |---|---|---|
 | **Gecko** | A running runtime instance on a particular machine or device. | Advertises capabilities, manages local Lines, and connects Blocks through known contracts. |
 | **Mesh** | A collection of Gecko instances that have discovered one another and can interact. | The available environment; a new participant does not automatically rebuild an App. |
-| **App** | A composition of Lines, their Edges and Anchors, the Blocks they use, and a user interface that serves a task. | Can span several Gecko instances; has explicit membership and dependencies. |
+| **App** | A composition of Lines, their Edges and Anchors, the Blocks they use, and Views that serves a task. | Can span several Gecko instances; has explicit membership and dependencies. |
 | **Line** | A named processing chain of Points with shared configuration, lifecycle, and diagnostics. | A concrete execution unit: one dedicated process with the Gecko runtime on one Gecko instance. |
-| **Point** | An addressable logical processing group within a Line. | Has interfaces, parameters, results, and metrics; this does not imply an independent process or restart. |
+| **Point** | An addressable logical processing group within a Line. | Declares processing interfaces and control/view/trace capabilities; this does not imply an independent process or restart. |
+| **View** | A user-facing representation of an App combining data and state displays with available user actions. | Consists of external UI elements explicitly bound to declared App capabilities; the concept itself does not define a separate process. |
 | **Block** | A shared service implementing a domain contract understood by Gecko. | Can serve several Lines; a process, container, or external service is an implementation choice, not the definition of a Block. |
 | **Anchor** | A Line’s dependency on a shared service, specifying the required contract and the conditions under which the Line can operate. | References a particular Block; records required capabilities, readiness conditions, and behavior when unavailable. |
 | **Edge** | A supported way to connect processing interfaces, with defined rules and constraints. | Predetermines allowed connections between Points within a Line and exposed Line interfaces in an App; applied to particular participants during assembly. |
@@ -42,23 +43,45 @@ An App describes the overall system. A Line defines a concrete execution boundar
 
 “The Gecko project” refers to the whole system, while “a Gecko instance” refers to a particular runtime. A machine provides the environment for Gecko. This document does not constrain the number of instances on one machine.
 
-The geometric names reflect structure: a Point is a functional point within a Line; a Line is a processing chain; a Block is a shared service unit; an Edge is a supported way to connect; an Anchor is a Line’s support from a service. The vocabulary uses Point. Dot is not introduced as a separate entity.
+The geometric names reflect structure: a Point is a functional point within a Line; a Line is a processing chain; a Block is a shared service unit; an Edge is a supported way to connect; an Anchor is a Line’s support from a service; a View is a projection of an App for the user. The vocabulary uses Point. Dot is not introduced as a separate entity.
 
 ## 3. Structure and Execution Boundaries
+
+### 3.1. App Composition
+
+This diagram describes application composition and relationships between concepts. Edges define Point connections within a Line and Line connections at App level; Anchors describe dependencies on Blocks.
 
 ```mermaid
 flowchart TB
     App[App] -->|includes| Line[Lines]
     App -->|uses| Block[Blocks]
-    App -->|describes connections through| Edge[Edges]
-    App -->|includes| UI[User interface]
-    Line -->|contains| Point[Points]
+    App -->|connects Lines through| Edge[Edges]
+    App -->|includes| View[Views]
+    View -->|contains| UI[UI elements]
+    View -.->|uses control/view/trace| Point[Points]
+    Line -->|contains| Point
+    Line -->|connects Points through| Edge
     Line -->|declares| Anchor[Anchors]
     Anchor -->|requires a contract from| Block
+```
+
+UI elements belong to the App’s Views. Slider, Button, and VideoView are not processing Points within a Line. They bind to declared capabilities of Lines, their Points, and Blocks. The dedicated-process rule for a Line does not apply to a View or each UI element.
+
+### 3.2. Environment and Execution Boundaries
+
+This diagram describes placement and execution. An App can span several Gecko instances; a particular Line executes entirely on one of them. Connecting a Block through a contract does not imply placing its process on that Gecko instance.
+
+```mermaid
+flowchart TB
     Mesh[Mesh] -->|includes| Gecko[Gecko instances]
     Gecko -->|advertises| Axis[Axes]
-    Gecko -->|manages local| Line
-    Gecko -->|connects through a contract| Block
+    Gecko -->|manages local| Line[Lines]
+    Line -->|executes in| Process[Dedicated Line process]
+    Process -->|contains| Runtime[Gecko runtime for the Line]
+    Runtime -->|executes| Point[Points of this Line]
+    Gecko -.->|connects through a contract| Block[Blocks]
+    Line -->|declares a dependency| Anchor[Anchors]
+    Anchor -->|requires a contract from| Block
     Point -.->|requires local| Axis
 ```
 
@@ -67,8 +90,6 @@ A Line has an explicit boundary: one Gecko instance and one dedicated process wi
 **One source → one Line is the default policy.** A source can be a camera, file, or another supported source. Multiple inputs within one Line are possible when that scenario is explicitly supported; this is not a commitment for the first version.
 
 A Block has its own service boundary defined by its implementation. Sharing a Block does not merge Lines or change their restart boundaries. Gecko may manage service startup where supported, but does not impose a “one dedicated process” rule on every Block.
-
-UI elements belong to the App’s interface. Slider, Button, and VideoView are not processing Points within a Line. They connect to accessible interfaces and parameters of Lines, their Points, and Blocks. The dedicated-process rule for a Line does not apply to each UI element.
 
 ## 4. A Line and Its Points
 
@@ -96,6 +117,42 @@ Point addressability allows changing `front_camera.detector.threshold` or inspec
 
 A Line and a GStreamer pipeline also describe different levels. A Line is a Gecko object with a stable name, lifecycle, and dedicated process with the Gecko runtime; a GStreamer pipeline is a concrete implementation of its processing within that runtime. They may correspond directly in the first scenarios.
 
+### 4.1. Point Contract: Control, View, and Trace
+
+**Control, data presentation, and tracing are designed alongside processing.** A Point declares its capabilities so that an external UI can discover what is available and which elements can bind to it. These descriptions are part of the Point contract from the first version; specific capability sets depend on the implementation.
+
+| Contract Part | What the Point Declares | Possible External UI Elements |
+|---|---|---|
+| **Control plane** | Parameters, types, ranges or choices, available commands, application conditions, and result acknowledgment | Slider, input field, model selector, action button |
+| **View plane** | Available data representations, their formats and meaning: previews, images, detections, tables | VideoView, image viewer, overlay, results table |
+| **Trace plane** | Processing events, errors, durations, metrics, and identifiers relating events to inputs and results | Timeline, latency graph, frame or request path inspector |
+
+A View as an App object is distinct from the view plane: the plane declares available data representations, while a View assembles a user-facing screen from capabilities of all three planes.
+
+The control plane describes whether a change can apply while running, whether it requires rebuilding or restarting the Line, and when it is considered applied. Point commands do not introduce an independent lifecycle: `restart(detector)` does not appear automatically. Lifecycle operations belong to the Line.
+
+The view plane describes available representations, not a finished screen. A Point may suggest a preferred UI element, such as a Slider for a numeric parameter or an overlay for detections; the View selects the actual presentation. Formats and coordinate systems must allow bindings to be validated, such as the compatibility of detections with the displayed image.
+
+The trace plane relates events to a particular Line, Point, and processed frame or request. Across Point and Line boundaries, the contract must allow event correlation to be preserved. Unrelated logs do not replace a trace. Collection completeness, sampling, and history storage will be defined separately.
+
+```text
+Inference Point detector
+
+Control:
+  threshold: number 0…1, change while running
+  model: select from a list, change requires Line restart
+
+View:
+  input_preview: image
+  detections: results with coordinates and frame identifier
+
+Trace:
+  inference_started / completed / failed
+  duration, frame_id / request_id
+```
+
+This is an example contract, not a universal requirement for every inference implementation. The Point declares capabilities; the Line runtime exposes them; an external View displays data and performs allowed actions. Configuration preserves explicit UI bindings to parameter, command, and representation addresses. These bindings are neither processing Edges nor service dependency Anchors. API formats and transports for these planes have not been selected.
+
 ## 5. Blocks and Anchors: Shared Services and Dependencies
 
 **A Block provides a domain capability; an Anchor describes a Line’s dependency on that provider.** For example, an inference Block executes models, while a recording storage Block writes and reads video segments by camera and time. An arbitrary process or database nearby does not become a Block merely by exposing a port.
@@ -117,7 +174,7 @@ Each Line has its own Inference Point that prepares requests and receives respon
 
 A Block is connected explicitly: specify its name, contract and version, address, and a supported connection implementation. For a third-party service such as Triton, an adapter translates its interface into a Gecko contract, checks compatibility, and discovers available capabilities. A service built for Gecko can implement the contract directly. A process, container, or open port does not replace this validation.
 
-**Zenoh is not mandatory for a Block.** A supported way to fulfill the contract is mandatory. An external service can use its own protocol through an adapter. Future discovery may locate service declarations, but does not create Anchors by itself.
+A supported way to fulfill the contract is mandatory. An external service can use its own protocol through an adapter. Future discovery may locate service declarations, but does not create Anchors by itself.
 
 Startup management and contract fulfillment are separate:
 
@@ -144,7 +201,7 @@ An element has inputs and outputs, but matching data types alone does not permit
 
 A Line’s dependency on a Block is described by an Anchor. Checks such as “is Triton reachable?” and “is the model ready?” belong to the Block and Anchor. Block calls are implemented by a domain contract client or adapter; they do not need to be represented as Edges.
 
-Zenoh is considered for discovery, state, control, and suitable data. RTSP/RTP was considered for video between machines. Universal transfer of every Edge through Zenoh is not assumed. Bandwidth and latency measurements are tied to their time and test conditions.
+Concrete transports will be selected separately for supported connection mechanisms. Bandwidth and latency measurements are tied to their time and test conditions.
 
 ## 7. Who Advertises Axes
 
@@ -204,20 +261,39 @@ The Editor shows an App with Lines, connections through Edges, and dependencies 
 
 A desktop participating in an App is also a Gecko instance with UI Axes. Admin / Editor and the operator screen are interface roles. An operator can see only video and the necessary controls. Administrator permissions do not follow from having a UI Axis.
 
+### 9.1. View: A User-Facing App Representation
+
+An App can have several Views. An operator View displays video, detections, and the necessary controls. A diagnostic View displays Line state, Anchor readiness, Point metrics, and event traces. Both use declared capabilities of the same App.
+
+A View consists of UI elements with explicit bindings to data, parameters, and commands. For example, a VideoView displays `front_camera.detector.input_preview`, a Slider changes `front_camera.detector.threshold`, and a Button invokes `front_camera.start`. A trace presentation uses declared events and their identifiers.
+
+Declarations allow a basic View to be assembled automatically or a custom screen to be built using the same interfaces. The UI accounts for operation availability, acknowledgment of changes, restart requirements, and lost connections; a preferred widget does not grant additional control permissions.
+
+A View executes outside Point processing. Its definition does not promise a separate process or a particular UI framework. Placement, preview and trace delivery, update rules, and reconnection behavior are selected separately; an available data transfer mechanism must support each particular binding.
+
 ## 10. Workflow for Early Versions
 
 1. Start Gecko on available devices; discover Mesh participants and their Axes.
 2. Create an App and Lines; assemble Points within Lines.
-3. Select supported Edges for particular Point connections and exposed Line interfaces; connect the user interface to data and controls.
+3. Select supported Edges for particular Point connections and exposed Line interfaces; create Views bound to declared control/view/trace capabilities.
 4. Explicitly connect the required Blocks through contracts and declare Line Anchors: capabilities, readiness conditions, and behavior when unavailable.
 5. Select a Gecko instance for each Line. Where Block startup management is supported, specify its deployment separately.
-6. Check local requirements, resources, every Edge, and every Anchor’s conditions; explain limitations before launch.
+6. Check local requirements, resources, every Edge, every Anchor’s conditions, and View bindings; explain limitations before launch.
 7. Start Lines and, where necessary and supported, services. Show Line and Block state, Anchor readiness, and Point diagnostics.
 8. Apply changes with their scope clearly identified: a Point parameter, a Line restart, an Anchor change, or a Block operation.
 
 Manual placement is sufficient for the first version. Discovery alone does not connect participants or rebuild an App. The initial practical scenario is one camera or file, one Line, and one dedicated process; shared inference is added as a Block with an explicitly declared Anchor.
 
 ## 11. Vocabulary Changes
+
+### From Version 0.3 to 0.4
+
+| Previously | Now |
+|---|---|
+| The App user interface has no term of its own | A View is a user-facing App representation with explicit UI bindings |
+| A Point lists parameters and diagnostics without a shared contract for external UI | A Point declares control/view/trace capabilities, usage conditions, and suitable UI elements from the outset |
+| App composition and the execution environment are mixed in one diagram | App composition is shown separately from placement and execution |
+| The text lists transport options | Transport selection remains open |
 
 ### From Version 0.2 to 0.3
 
@@ -227,7 +303,7 @@ Manual placement is sufficient for the first version. Discovery alone does not c
 | A managed Block must have one dedicated process | Block execution is implementation-defined; startup management is separate from the contract |
 | Service dependencies have no term of their own | An Anchor explicitly describes a Line’s dependency on a Block, its requirements, and operating conditions |
 | An Edge is a logical connection, including connections to Blocks | An Edge defines a supported way to connect processing between Points or Lines; Block dependencies are described by Anchors |
-| External service connection has no explicit contract validation | A Block is connected explicitly through a direct contract implementation or adapter; Zenoh is not mandatory |
+| External service connection has no explicit contract validation | A Block is connected explicitly through a direct contract implementation or adapter |
 
 ### Retained Changes in Version 0.2 from 0.1
 
@@ -241,6 +317,9 @@ The Kubernetes comparison retains its original meaning: Gecko understands media/
 
 - Configuration and interface formats, their versions, and identity.
 - Rules for exposing Point interfaces through a Line; the distinction between parameters and control inputs.
+- Formats for control/view/trace declarations, UI hints, and View bindings; View placement and execution.
+- Command and change acknowledgments, representation updates, and UI behavior on connection loss.
+- Trace correlation across Points and Lines, sampling, history storage, and data delivery for each plane.
 - Concrete Point and Edge implementations for the first version.
 - The first Block domain contract (inference), its direct implementations, and the Triton adapter.
 - Anchor format, binding of Points that use Anchors, and concrete policies for service unavailability or lack of readiness.
@@ -248,4 +327,4 @@ The Kubernetes comparison retains its original meaning: Gecko understands media/
 - Shared Block ownership, access by multiple Apps, control permissions, and supported service startup mechanisms.
 - When automatic placement, migration, load balancing, and recovery are needed.
 
-These questions refine implementation while preserving the foundation: Gecko executes Lines; Points organize processing within a Line; Edges define supported connections; Blocks fulfill domain contracts; Anchors describe Line dependencies on them; Axes describe local Gecko capabilities.
+These questions refine implementation while preserving the foundation: Gecko executes Lines; Points organize processing and declare control/view/trace capabilities; Views present an App to users; Edges define supported connections; Blocks fulfill domain contracts; Anchors describe Line dependencies on them; Axes describe local Gecko capabilities.
