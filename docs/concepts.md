@@ -1,18 +1,18 @@
 # Gecko — Concept Map
 
-Version 0.4 · October 6, 2026 · [Русский](concepts.ru.md)
+Version 0.5 · October 8, 2026 · [Русский](concepts.ru.md)
 
 This document establishes a shared vocabulary for designing the first versions of Gecko. The concepts describe devices, concrete execution of processing chains, supported connections, and dependencies on shared services. API formats, configuration formats, and concrete implementation mechanisms will be chosen separately.
 
-The sources are the conversations [“Gecko and Kubernetes Comparison”](https://chatgpt.com/g/g-p-6a1ac79a34548191ac02427895e5a00f/c/6ac20d5b-1eb4-83eb-8543-d13148c2f8e1), [“Pipeline Architecture”](https://chatgpt.com/c/6ac273bd-a1c0-83eb-8759-4d3000c859d8), and subsequent vocabulary refinements in this chat. A Line defines a concrete execution unit; a Point denotes a logical group within a Line; a Block implements a domain contract, and an Anchor explicitly describes a Line’s dependency on it.
+The sources are the conversations [“Gecko and Kubernetes Comparison”](https://chatgpt.com/g/g-p-6a1ac79a34548191ac02427895e5a00f/c/6ac20d5b-1eb4-83eb-8543-d13148c2f8e1), [“Pipeline Architecture”](https://chatgpt.com/c/6ac273bd-a1c0-83eb-8759-4d3000c859d8), and subsequent vocabulary refinements in this chat. A Line defines a concrete execution unit; a Point denotes a logical group within a Line; a Block is defined by a domain contract, and an Anchor explicitly describes a Line’s dependency on its provider. A Device denotes the hardware on which selected implementations execute.
 
-**Status:** an agreed working framework for design. It does not describe implemented capabilities. Automatic placement, migration, load balancing, and seamless failover remain possible directions for future development.
+**Status:** an agreed working framework for design. It does not describe implemented capabilities. Capability discovery, automatic connection checks, proposed App compositions, and preparation of known services are part of the target UX. The scope of the first version will be chosen separately; migration of running participants, load balancing, and seamless failover do not follow from this workflow.
 
 ## 1. Core Idea
 
-A Gecko instance runs on a particular device, advertises available Axes, and manages Lines placed on it. Gecko instances that can reach one another form a Mesh.
+The user starts Gecko instances on available machines and platforms. Each Gecko instance discovers accessible Devices and advertises Axes, known processing implementations, and connected services. Gecko instances that can reach one another form a Mesh; supported connection checks provide bandwidth and latency measurements.
 
-An App combines Lines, supported processing connections, dependencies on Blocks, and Views. A Line consists of Points and executes in one dedicated process with the Gecko runtime. A Block is a shared service implementing a domain contract understood by Gecko. An Anchor defines a particular Line’s dependency on that service. A View presents selected App data, controls, and diagnostics to the user.
+For a task, Gecko proposes processing compositions and placements based on Mesh capabilities. An App describes and represents the selected composition: Lines, supported connections, dependencies on Blocks, and Views. It is not a separate predefined program. The selected option has an explicit configuration that can be saved, validated, and started. A Line consists of Points and executes in one dedicated process with the Gecko runtime. A Block is defined by a domain contract understood by Gecko; a service satisfying that contract is connected as a Block. An Anchor defines a particular Line’s dependency on that provider. A View presents selected App data, controls, and diagnostics to the user.
 
 ```text
 App: inspection
@@ -24,26 +24,27 @@ Inside front_camera (connections use supported Edges):
 Source Point → Inference Point → Tracking Point → Output Point
 ```
 
-An App describes the overall system. A Line defines a concrete execution boundary, and Points describe its internal functional structure. A Block denotes a provider of a service capability; an Anchor denotes a Line’s requirements for it. This does not imply ownership of the Block’s process.
+An App describes the composition and connections of Lines, their Points, and the Blocks they use for a particular task. A Line defines a concrete execution boundary, and Points describe its internal functional structure. A Block’s contract and a particular provider of that contract are distinct. A container, external service, or Gecko-native implementation can provide the same contract; a Block does not define their deployment mechanism or process ownership.
 
-## 2. Ten Core Terms
+## 2. Eleven Core Terms
 
 | Term | Definition | Practical Boundary |
 |---|---|---|
-| **Gecko** | A running runtime instance on a particular machine or device. | Advertises capabilities, manages local Lines, and connects Blocks through known contracts. |
-| **Mesh** | A collection of Gecko instances that have discovered one another and can interact. | The available environment; a new participant does not automatically rebuild an App. |
-| **App** | A composition of Lines, their Edges and Anchors, the Blocks they use, and Views that serves a task. | Can span several Gecko instances; has explicit membership and dependencies. |
+| **Gecko** | A running runtime instance on a particular machine or platform. | Discovers Devices, advertises capabilities, manages local Lines, and connects Blocks through contracts; may support preparation of known services. |
+| **Mesh** | A collection of Gecko instances that have discovered one another and can interact. | Supports connection checks and proposed App compositions; a new participant does not change a running composition by itself. |
+| **App** | A description and representation of a composition of Lines, their Edges and Anchors, the Blocks they use, and Views that serves a task. | Can be proposed automatically from Mesh capabilities; the selected option records membership, implementations, placement, and dependencies. |
 | **Line** | A named processing chain of Points with shared configuration, lifecycle, and diagnostics. | A concrete execution unit: one dedicated process with the Gecko runtime on one Gecko instance. |
 | **Point** | An addressable logical processing group within a Line. | Declares processing interfaces and control/view/trace capabilities; this does not imply an independent process or restart. |
 | **View** | A user-facing representation of an App combining data and state displays with available user actions. | Consists of external UI elements explicitly bound to declared App capabilities; the concept itself does not define a separate process. |
-| **Block** | A shared service implementing a domain contract understood by Gecko. | Can serve several Lines; a process, container, or external service is an implementation choice, not the definition of a Block. |
+| **Block** | A domain service capability defined by a Gecko contract. | A particular service is connected as a Block after contract validation; hardware requirements and startup belong to the provider implementation. Can serve several Lines. |
 | **Anchor** | A Line’s dependency on a shared service, specifying the required contract and the conditions under which the Line can operate. | References a particular Block; records required capabilities, readiness conditions, and behavior when unavailable. |
 | **Edge** | A supported way to connect processing interfaces, with defined rules and constraints. | Predetermines allowed connections between Points within a Line and exposed Line interfaces in an App; applied to particular participants during assembly. |
 | **Axis** | An execution capability advertised by a Gecko instance. The plural is **Axes**. | Matched against local requirements of selected implementations; Block availability is checked through Anchors. |
+| **Device** | An addressable hardware execution unit accessible to a particular Gecko instance. | A CPU, GPU, or other accelerator with characteristics, internal structure, resources, and state; it is neither a Block nor an Axis. |
 
 “The Gecko project” refers to the whole system, while “a Gecko instance” refers to a particular runtime. A machine provides the environment for Gecko. This document does not constrain the number of instances on one machine.
 
-The geometric names reflect structure: a Point is a functional point within a Line; a Line is a processing chain; a Block is a shared service unit; an Edge is a supported way to connect; an Anchor is a Line’s support from a service; a View is a projection of an App for the user. The vocabulary uses Point. Dot is not introduced as a separate entity.
+The geometric names reflect structure: a Point is a functional point within a Line; a Line is a processing chain; a Block is a service capability defined by a contract; an Edge is a supported way to connect; an Anchor is a Line’s support from a service; a View is a projection of an App for the user. Hardware keeps the familiar name Device without a geometric renaming. The vocabulary uses Point. Dot is not introduced as a separate entity.
 
 ## 3. Structure and Execution Boundaries
 
@@ -75,6 +76,7 @@ This diagram describes placement and execution. An App can span several Gecko in
 flowchart TB
     Mesh[Mesh] -->|includes| Gecko[Gecko instances]
     Gecko -->|advertises| Axis[Axes]
+    Gecko -->|discovers| Device[Devices]
     Gecko -->|manages local| Line[Lines]
     Line -->|executes in| Process[Dedicated Line process]
     Process -->|contains| Runtime[Gecko runtime for the Line]
@@ -83,6 +85,7 @@ flowchart TB
     Line -->|declares a dependency| Anchor[Anchors]
     Anchor -->|requires a contract from| Block
     Point -.->|requires local| Axis
+    Point -.->|implementation uses| Device
 ```
 
 A Line has an explicit boundary: one Gecko instance and one dedicated process with the Gecko runtime during execution. Placement applies to the whole Line. Its Points cannot independently move to other machines without changing the execution structure.
@@ -153,9 +156,17 @@ Trace:
 
 This is an example contract, not a universal requirement for every inference implementation. The Point declares capabilities; the Line runtime exposes them; an external View displays data and performs allowed actions. Configuration preserves explicit UI bindings to parameter, command, and representation addresses. These bindings are neither processing Edges nor service dependency Anchors. API formats and transports for these planes have not been selected.
 
+### 4.2. Selecting a Point Implementation
+
+A Point’s function and contract differ from its execution mechanism. For example, an Inference Point may have implementations for a CPU, an NVIDIA dGPU, the Jetson platform, or calling an inference Block through an Anchor. These are alternatives with their own conditions, rather than a flat list of interchangeable devices. Options must satisfy the required Point contract; compatibility with neighboring Points and Edges is checked separately.
+
+During App composition, the selection mechanism chooses compatible implementations and placement for the whole Line from known options, considering the task, constraints, and user preferences. The App saves the selected option or an explicitly permitted selection policy. Gecko validates the configuration and binds execution to particular Devices. The user can select an option manually or pin an implementation and placement.
+
+A Line’s own requirements, such as the architectures supported by its runtime, apply together with Point and internal Edge requirements. Runtime support for x86_64 and arm64 does not mean every Line composition supports both architectures. Moving from local inference to a Block changes dependencies and requires an Anchor; selection before startup does not imply automatic switching while running.
+
 ## 5. Blocks and Anchors: Shared Services and Dependencies
 
-**A Block provides a domain capability; an Anchor describes a Line’s dependency on that provider.** For example, an inference Block executes models, while a recording storage Block writes and reads video segments by camera and time. An arbitrary process or database nearby does not become a Block merely by exposing a port.
+**A Block is defined by a domain contract; an Anchor describes a Line’s dependency on a provider of that contract.** For example, an inference contract describes model execution, while a recording storage contract describes writing and reading video segments by camera and time. A running service, container, or Gecko-native implementation becomes a connected Block when it satisfies the contract. An arbitrary process or database nearby does not become a Block merely by exposing a port.
 
 A Block’s contract describes available operations, inputs and results, request/response correlation, errors, and available diagnostics. For inference, it must expose models and versions, their inputs and outputs, invocation rules, and handling of overload or timeout. The exact contract format will be selected separately.
 
@@ -172,16 +183,40 @@ Anchor detector:
 
 Each Line has its own Inference Point that prepares requests and receives responses. A Point uses a Block through the Line’s declared Anchor; configuration shows which Points use that dependency. The Anchor itself is not a transport: calls are implemented by a contract client or adapter. A Line can have several Anchors, and several Lines can have Anchors referencing one Block.
 
-A Block is connected explicitly: specify its name, contract and version, address, and a supported connection implementation. For a third-party service such as Triton, an adapter translates its interface into a Gecko contract, checks compatibility, and discovers available capabilities. A service built for Gecko can implement the contract directly. A process, container, or open port does not replace this validation.
+A Block provider binding is saved explicitly: service name, contract and version, address or built-in binding, and a supported connection implementation. The App composition mechanism may propose it, or the user may specify it. For a third-party service such as Triton, an adapter translates its interface into a Gecko contract, checks compatibility, and discovers available capabilities. A service built for Gecko can implement the contract directly. A process, container, or open port does not replace this validation.
 
-A supported way to fulfill the contract is mandatory. An external service can use its own protocol through an adapter. Future discovery may locate service declarations, but does not create Anchors by itself.
-
-Startup management and contract fulfillment are separate:
-
-- **External service:** Gecko connects to an existing Block and does not have to own its process or provide restart operations.
-- **Service managed by Gecko:** Gecko may start and stop the Block implementation through a supported mechanism. Concrete startup mechanisms will be selected separately.
+A supported way to fulfill the contract is mandatory. An external service can use its own protocol through an adapter. Discovered service declarations participate in proposed App compositions; Anchor bindings are recorded in the selected composition rather than created merely by discovery.
 
 Restarting a Line does not by itself restart a shared Block. A Block failure can affect all dependent Lines; each Line’s reaction is defined by its Anchors. Declared Blocks and Anchors remain in the App when a service is unavailable. Contract compatibility, service availability, and readiness of the required capability are displayed separately. An Anchor does not imply exclusive ownership of a Block.
+
+### 5.1. An Available Provider and the Ability to Prepare One
+
+A Block contract does not require a particular CPU, GPU, or container. Those requirements belong to the provider implementation. A node distinguishes a running contract provider from a known implementation it can prepare. Suitable hardware alone implies neither a ready Block nor the ability to start one automatically.
+
+| State | Condition | Representation in an App Option |
+|---|---|---|
+| Available now | The provider is connected, the contract is compatible, and the required capability is ready | Can be used after Anchor validation |
+| Can be prepared | The implementation, its requirements, and a supported preparation mechanism are known | Requires preparation with visible steps and results |
+| Requires external preparation | A provider is needed, but Gecko cannot prepare it | The dependency is unsatisfied; the missing condition is explained |
+
+An implementation can report its backend, Devices in use, location, and reasons for not being ready. This information exposes the provider’s hardware dependency without making it part of the Block contract. Unknown hardware information about an external service is marked unknown; Gecko does not infer it from a service name or a local GPU.
+
+### 5.2. Optional Preparation and Startup Management
+
+Service preparation is an optional Gecko capability, separate from a Block’s contract and App composition. Connecting an existing service does not require it. For the target UX of “start nodes → choose a task → get a working App,” preparation of known providers must be designed alongside composition selection.
+
+| Provider Execution Mechanism | Gecko’s Responsibility |
+|---|---|
+| An already running external service | Connect and validate the contract and readiness; process management is not assumed |
+| A separate program or script | Use a known preparation and startup mechanism, then validate the result |
+| A container | Call a supported container runtime or external manager, then validate the service |
+| Gecko-native | Create a built-in service through the same contract; execution inside the Gecko process or in a separate process is implementation-defined |
+
+A supported implementation describes requirements, installation, parameters and artifacts (including models), startup, readiness checks, logs, shutdown, and cleanup of created resources. Calling a script is not itself confirmation that a Block is ready. The UI presents preparation steps, errors, and required actions in service terms. A limited set of known implementations with described lifecycles is preferred for the first version; arbitrary scripts and containers are not automatically supported.
+
+An App saves the selected provider and, where needed, its preparation parameters. Deployment does not become part of the domain contract. Gecko does not have to implement its own container runtime, universal orchestrator, migration, or load balancing. A built-in provider shares resources and the failure risk of the Gecko process; that execution mechanism does not provide process isolation for the Block.
+
+A created provider records its lifecycle owner and dependent consumers. Stopping an App does not automatically stop a shared Block. Reuse, shutdown, and cleanup rules must account for other Apps and Lines; a preparation failure must not delete an external service Gecko does not own.
 
 ## 6. Edges: Supported Processing Connections
 
@@ -203,9 +238,9 @@ A Line’s dependency on a Block is described by an Anchor. Checks such as “is
 
 Concrete transports will be selected separately for supported connection mechanisms. Bandwidth and latency measurements are tied to their time and test conditions.
 
-## 7. Who Advertises Axes
+## 7. Axes, Devices, and Execution Requirements
 
-**Gecko advertises Axes.** Points describe the local requirements of their selected implementations. A Line’s requirements combine those of its Points and internal Edges; placement validation considers the whole Line. If Gecko manages a Block’s startup, local requirements of that implementation are checked separately. A Line’s domain requirements for a Block are described by Anchors, not Axes.
+**Gecko advertises Axes.** A Device describes particular hardware; an Axis describes an available environmental capability considering hardware, software, and access. Points describe the local requirements of their selected implementations. A Line’s own requirements and those of its Points and internal Edges must all hold; placement validation considers the whole Line. If Gecko prepares a Block provider, that implementation’s requirements are checked separately at its execution location. A Line’s domain requirements for a Block are described by Anchors, not Axes.
 
 ```text
 Gecko jetson-01 advertises: camera, gstreamer, tensorrt
@@ -218,6 +253,40 @@ Line camera_front requires: capabilities for all its Points
 Requirements belong to a particular implementation. An Inference Point with a local model and an Inference Point using a Block through an Anchor may have different local requirements. A remote Block does not turn its GPU into a local Axis of another Gecko instance.
 
 Capability and current resource availability are distinct: having TensorRT does not confirm free GPU memory, and having a camera does not confirm access at launch. Resources, Anchor conditions, and Edge support are checked separately.
+
+### 7.1. A Device and Its Internal Resources
+
+A Device is a CPU, discrete or integrated GPU, NPU, or other hardware accelerator that Gecko identifies and selects individually for execution. ARM/x86 are CPU architecture characteristics, while Jetson or an embedded board is a platform containing accessible Devices. For the first version, a CPU can be represented as one Device per machine, describing cores and logical CPUs within it; socket and NUMA detail can be added when needed.
+
+```text
+Gecko jetson-01
+├── platform: Jetson
+├── Device cpu-0: arm64 architecture, cores, and logical CPUs
+├── Device gpu-0: characteristics, memory, state
+└── Axes: verified available execution capabilities
+```
+
+Each CPU core is not a separate Device. Cores, threads, memory, and other internal resources are considered during placement and execution. Affinity, quota, and exclusive reservation are different conditions; binding to logical CPUs does not itself mean exclusive allocation. Concrete resource allocation mechanisms will be chosen separately.
+
+One Line may use several Devices, such as a CPU for data preparation and a GPU for inference, while remaining one process on one Gecko instance. Physical presence of a Device does not guarantee an available Axis: compatible software and actual access are required. Several Gecko instances on one machine may share hardware; node advertisements do not imply independent resource inventories.
+
+### 7.2. The App Dependency Graph
+
+App composition can be expanded as a tree, but execution dependencies form a graph: several Lines may share a Block or Device. App validation combines participant results while preserving each dependency’s execution location.
+
+```text
+App inspection
+├── Line camera: its own runtime requirements
+│   ├── Source Point: implementation requirements
+│   ├── Inference Point: selected option requirements
+│   │   └── local binding to Device gpu-0
+│   └── internal Edges: compatibility and resource requirements
+└── Line archive
+    └── Anchor storage → Block recordings
+                          └── provider: separate implementation requirements
+```
+
+A Line combines its own requirements with those of its Points and internal Edges. When using a Block, the Line requires its contract and readiness through an Anchor; a remote provider’s hardware requirements do not become local Line requirements. Shared diagnostics can expose Device relationships reported by the provider. No additional term is introduced for a hardware dependency: requirements and concrete bindings belong to execution configuration.
 
 ## 8. Process and Concrete Line Execution
 
@@ -237,11 +306,15 @@ Line camera_front → PID 5678
 
 `pause` means suspending processing according to runtime rules, rather than necessarily suspending the process through the OS. `reload` means applying configuration and may require a restart. These operations do not promise seamless application of every change.
 
-A Block has no universal process-count rule or mandatory Gecko runtime. Its contract can be fulfilled by a service in a process, container, or external environment. A connected Block’s stable name does not depend on the PID of its implementation.
+A Block has no universal process-count rule or mandatory Gecko runtime. Its contract can be fulfilled by an external service, program, container, or Gecko-native service, including inside the Gecko process. A connected Block’s stable name does not depend on the PID of its implementation.
 
 The dedicated-process rule for a Line does not describe the internals of the Gecko instance itself or desktop UI. Process isolation also does not remove shared dependencies on devices and services.
 
 ## 9. Placement, Distributed Processing, and UX
+
+Admin / Editor presents Mesh capabilities and proposes compatible App options for a task, including Point implementations, Line placement, and Block providers. Available now is distinguished from requiring preparation and an unsatisfied dependency. Selecting an option records the composition; manual assembly and constraint changes are also available.
+
+Nodes automatically perform supported checks of paths between them to assess bandwidth and latency. Planning considers stream requirements and measurement freshness; an unchecked path is not assumed suitable. Measuring one connection does not guarantee bandwidth for all simultaneous streams or reserve resources. Current resource availability and dependency readiness are rechecked before startup.
 
 An App can run across several Gecko instances. Each Line is placed entirely on one Gecko instance. Moving a Point’s function beyond its Line requires an explicit structural change: using a Block’s service contract through an Anchor, or extracting part of the processing into another Line with a supported Edge.
 
@@ -271,20 +344,31 @@ Declarations allow a basic View to be assembled automatically or a custom screen
 
 A View executes outside Point processing. Its definition does not promise a separate process or a particular UI framework. Placement, preview and trace delivery, update rules, and reconnection behavior are selected separately; an available data transfer mechanism must support each particular binding.
 
-## 10. Workflow for Early Versions
+## 10. Target Workflow and Early Versions
 
-1. Start Gecko on available devices; discover Mesh participants and their Axes.
-2. Create an App and Lines; assemble Points within Lines.
-3. Select supported Edges for particular Point connections and exposed Line interfaces; create Views bound to declared control/view/trace capabilities.
-4. Explicitly connect the required Blocks through contracts and declare Line Anchors: capabilities, readiness conditions, and behavior when unavailable.
-5. Select a Gecko instance for each Line. Where Block startup management is supported, specify its deployment separately.
-6. Check local requirements, resources, every Edge, every Anchor’s conditions, and View bindings; explain limitations before launch.
-7. Start Lines and, where necessary and supported, services. Show Line and Block state, Anchor readiness, and Point diagnostics.
-8. Apply changes with their scope clearly identified: a Point parameter, a Line restart, an Anchor change, or a Block operation.
+1. Start Gecko on available machines and platforms; discover Mesh participants, their Devices, Axes, known Point implementations, running Block providers, and service preparation capabilities.
+2. Automatically check supported paths between nodes; save bandwidth, latency, measurement time, and conditions.
+3. Specify the task, inputs, and constraints. Receive App options with compatible Point implementations, Line composition, Edges, Anchors, Block providers, Views, and placement.
+4. For each option, show what is ready now, what requires preparation, and which dependencies are unsatisfied. The user selects an option or changes constraints and composition; the App saves the selected composition and bindings.
+5. Check each Line’s combined requirements, Devices and resource availability, every Edge, Anchor conditions, and View bindings. Explain limitations before startup.
+6. Prepare required providers using supported mechanisms. Validate their contracts and readiness of required capabilities; external preparation remains an explicit condition when Gecko cannot perform it.
+7. Recheck readiness before starting Lines. Show Line and Block state, Anchor readiness, Device use, Point diagnostics, and service preparation progress.
+8. Apply changes with explicit scope: a Point parameter, implementation change, Line restart, Anchor change, or Block provider operation. A Mesh change may produce new proposals, but does not rebuild a running App by itself.
 
-Manual placement is sufficient for the first version. Discovery alone does not connect participants or rebuild an App. The initial practical scenario is one camera or file, one Line, and one dedicated process; shared inference is added as a Block with an explicitly declared Anchor.
+This is the target scenario, not a claim of an existing implementation. Early versions may limit tasks, implementations, and preparation mechanisms; manual selection remains available. The initial practical scenario is a camera or file and one Line with local processing, or shared inference through a Block. Discovery, proposed compositions, preparation, and execution are separate steps; selection before startup does not promise migration or failover while running.
 
 ## 11. Vocabulary Changes
+
+### From Version 0.4 to 0.5
+
+| Previously | Now |
+|---|---|
+| Hardware is mentioned without an addressable entity | Device describes CPUs, GPUs, and accelerators; cores and threads remain internal resources |
+| An App is assembled manually before placement | An App is a task composition proposed from Mesh capabilities or assembled manually |
+| Automatic placement is left for the future | Proposed implementations and placement before startup are part of the target UX; migration and failover remain separate tasks |
+| Line requirements come from Points and Edges | A Line’s own requirements are also checked; App dependencies form a graph |
+| Block contract, provider, and startup are insufficiently separated | The contract defines a service capability; hardware requirements and preparation belong to the provider implementation |
+| Service connection and startup are described generally | Available Blocks, providers that can be prepared, and external preparation are distinguished; external, program, container, and Gecko-native execution options are described |
 
 ### From Version 0.3 to 0.4
 
@@ -325,6 +409,10 @@ The Kubernetes comparison retains its original meaning: Gecko understands media/
 - Anchor format, binding of Points that use Anchors, and concrete policies for service unavailability or lack of readiness.
 - Pause/reload semantics, policy for loss of a source or desktop, and the order of App operations.
 - Shared Block ownership, access by multiple Apps, control permissions, and supported service startup mechanisms.
-- When automatic placement, migration, load balancing, and recovery are needed.
+- Device, topology, requirement, and binding formats; shared resource accounting and reservation rules.
+- A catalog of Point and Block provider implementations, App selection algorithms, task constraints, and option selection policy.
+- Supported automatic network checks, measurement freshness, and assessment of combined load.
+- Known service preparation mechanisms, model and artifact acquisition, progress, cleanup after failures, and process selection for Gecko-native providers.
+- When migration, load balancing, and recovery of running participants are needed.
 
-These questions refine implementation while preserving the foundation: Gecko executes Lines; Points organize processing and declare control/view/trace capabilities; Views present an App to users; Edges define supported connections; Blocks fulfill domain contracts; Anchors describe Line dependencies on them; Axes describe local Gecko capabilities.
+These questions refine implementation while preserving the foundation: Gecko discovers Devices and advertises Axes; Mesh capabilities are used to compose an App for a task; Lines define execution boundaries; Points organize processing and declare control/view/trace capabilities; Views present an App to users; Edges define supported connections; Blocks are defined by domain contracts; Anchors describe Line dependencies on their providers. Provider preparation is a separate optional capability that does not change a Block’s contract.
