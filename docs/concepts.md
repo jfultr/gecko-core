@@ -1,6 +1,6 @@
 # Gecko — Concept Map
 
-Version 0.6 · October 10, 2026 · [Русский](concepts.ru.md)
+Version 0.7 · October 10, 2026 · [Русский](concepts.ru.md)
 
 This document establishes a shared vocabulary for designing the first versions of Gecko. An App defines a shared experience for working on a task, from available capabilities to a verifiable result. The other concepts describe processing, its execution, supported connections, and dependencies on shared services. API formats, configuration formats, and concrete implementation mechanisms will be chosen separately.
 
@@ -10,12 +10,15 @@ The sources are the conversations [“Gecko and Kubernetes Comparison”](https:
 
 ## 1. Core Idea
 
-The user starts Gecko instances on available machines and platforms. Each Gecko instance discovers accessible Devices and advertises Axes, known processing implementations, and connected services. Gecko instances that can reach one another form a Mesh; supported connection checks provide bandwidth and latency measurements.
+The user starts Gecko instances on available machines and platforms. Each Gecko instance discovers accessible Devices, exposes discovered or explicitly connected Cameras, and advertises Axes, known processing implementations, and connected services. Gecko instances that can reach one another form a Mesh; supported connection checks provide bandwidth and latency measurements.
 
 For a task, Gecko proposes processing compositions and placements based on Mesh capabilities. An App combines a composition description with the interaction available to its user: discover capabilities, assemble or select an option, validate it, start it, observe results, and change processing. The selected option has an explicit configuration of Lines, supported connections, dependencies on Blocks, and Views that can be saved. A Line consists of Points and executes in one dedicated process with the Gecko runtime. A Block is defined by a domain contract understood by Gecko; a service satisfying that contract is connected as a Block. An Anchor defines a particular Line’s dependency on that provider. A View presents selected App data, controls, and diagnostics to the user.
 
 ```text
 App: inspection
+
+Camera front → Source Point in Line front_camera
+Camera back  → Source Point in Line back_camera
 
 Line front_camera ── Anchor detector ──→ Block inference
 Line back_camera  ── Anchor detector ──→ Block inference
@@ -30,17 +33,17 @@ An App describes the composition and connections of Lines, their Points, and the
 
 **Lowering the threshold for testing an idea is Gecko’s responsibility.** An App defines a shared experience for working on a task regardless of the interaction mechanism. Its user may be an engineer, an agent, or a programmatic consumer. Available capabilities, their usage conditions, actions, and results must have the same meaning for all users; the particular presentation is chosen separately.
 
-Gecko immediately exposes known Device, Axis, Point, Edge, and Block capabilities, Anchor conditions, and available data representations. From these it proposes supported App options and explains what is ready now, what can be prepared, and what is missing. The presence of a device alone does not promise working processing: compatibility, resources, and dependency readiness are considered.
+Gecko immediately exposes known Device, Camera, Axis, Point, Edge, and Block capabilities, Anchor conditions, and available data representations. From these it proposes supported App options and explains what is ready now, what can be prepared, and what is missing. The presence of a device alone does not promise working processing: compatibility, resources, and dependency readiness are considered.
 
 The user specifies a task, input data, and constraints, receives available options, and evaluates the result. Gecko performs capability discovery, execution selection, and dependency validation. Technical details remain available for diagnostics and manual control; learning the entire execution structure should not be a prerequisite for the first experiment.
 
 The target cycle is **task and input data → App option → first observable result → change → repeat evaluation → deployment to the operational environment**. The main criterion for this experience is the time and number of required actions from intent to the first verifiable result on real data. Available models and data limit which hypotheses can be tested; the App makes these limitations explicit.
 
-## 2. Eleven Core Terms
+## 2. Twelve Core Terms
 
 | Term | Definition | Practical Boundary |
 |---|---|---|
-| **Gecko** | A running runtime instance on a particular machine or platform. | Discovers Devices, advertises capabilities, manages local Lines, and connects Blocks through contracts; may support preparation of known services. |
+| **Gecko** | A running runtime instance on a particular machine or platform. | Discovers Devices, exposes Cameras, advertises capabilities, manages local Lines, and connects Blocks through contracts; may support preparation of known services. |
 | **Mesh** | A collection of Gecko instances that have discovered one another and can interact. | Supports connection checks and proposed App compositions; a new participant does not change a running composition by itself. |
 | **App** | A composition for a task and a shared experience for interacting with its capabilities, actions, and results. | Gecko provides selection, validation, startup, observation, and modification regardless of interaction mechanism; the selected option records Lines, Edges, Anchors, Blocks, Views, implementations, and placement. |
 | **Line** | A named processing chain of Points with shared configuration, lifecycle, and diagnostics. | A concrete execution unit: one dedicated process with the Gecko runtime on one Gecko instance. |
@@ -51,6 +54,7 @@ The target cycle is **task and input data → App option → first observable re
 | **Edge** | A supported way to connect one Point’s output to another Point’s input, with defined rules and constraints. | Applied to particular Point interfaces during assembly; the Points may belong to the same Line or different Lines. An exposed Line interface refers to a Point interface. |
 | **Axis** | An execution capability advertised by a Gecko instance. The plural is **Axes**. | Matched against local requirements of selected implementations; Block availability is checked through Anchors. |
 | **Device** | An addressable hardware execution unit accessible to a particular Gecko instance. | A CPU, GPU, or other accelerator with characteristics, internal structure, resources, and state; it is neither a Block nor an Axis. |
+| **Camera** | An addressable source of images from a particular camera, discovered or explicitly connected to Gecko. | Exposes known streams or image acquisition modes and access conditions. A Source Point acquires its data for a Line; a Camera retains its identity independently of the Line and is not a compute Device, Point, or Axis. |
 
 “The Gecko project” refers to the whole system, while “a Gecko instance” refers to a particular runtime. A machine provides the environment for Gecko. This document does not constrain the number of instances on one machine.
 
@@ -60,7 +64,7 @@ The geometric names reflect structure: a Point is a functional point within a Li
 
 ### 3.1. App Composition
 
-This diagram describes application composition and relationships between concepts. A Line contains Points. Every processing connection through an Edge joins a Point output to a Point input, whether the Points belong to the same Line or different Lines. A Line declares internal connections; the App declares connections across Line boundaries. Anchors describe dependencies on Blocks.
+This diagram describes application composition and relationships between concepts. A Line contains Points. Every processing connection through an Edge joins a Point output to a Point input, whether the Points belong to the same Line or different Lines. A Line declares internal connections; the App declares connections across Line boundaries. Anchors describe dependencies on Blocks. Cameras and Devices belong to the execution environment shown in section 3.2.
 
 ```mermaid
 flowchart TB
@@ -81,17 +85,19 @@ UI elements belong to the App’s Views. Slider, Button, and VideoView are not p
 
 ### 3.2. Environment and Execution Boundaries
 
-This diagram describes placement and execution. An App can span several Gecko instances; a particular Line executes entirely on one of them. Connecting a Block through a contract does not imply placing its process on that Gecko instance.
+This diagram describes placement and execution. An App can span several Gecko instances; a particular Line executes entirely on one of them. Gecko exposes discovered or connected Cameras; a Source Point within a Line acquires their images. A Camera may be local or networked. Connecting a Block through a contract does not imply placing its process on that Gecko instance.
 
 ```mermaid
 flowchart TB
     Mesh[Mesh] -->|includes| Gecko[Gecko instances]
     Gecko -->|advertises| Axis[Axes]
     Gecko -->|discovers| Device[Devices]
+    Gecko -->|exposes discovered or connected| Camera[Cameras]
     Gecko -->|manages local| Line[Lines]
     Line -->|executes in| Process[Dedicated Line process]
     Process -->|contains| Runtime[Gecko runtime for the Line]
     Runtime -->|executes| Point[Points of this Line]
+    Point -.->|Source Point acquires images from| Camera
     Gecko -.->|connects through a contract| Block[Blocks]
     Line -->|declares a dependency| Anchor[Anchors]
     Anchor -->|requires a contract from| Block
@@ -104,6 +110,18 @@ A Line has an explicit boundary: one Gecko instance and one dedicated process wi
 **One source → one Line is the default policy.** A source can be a camera, file, or another supported source. Multiple inputs within one Line are possible when that scenario is explicitly supported; this is not a commitment for the first version.
 
 A Block has its own service boundary defined by its implementation. Sharing a Block does not merge Lines or change their restart boundaries. Gecko may manage service startup where supported, but does not impose a “one dedicated process” rule on every Block.
+
+### 3.3. Camera and Image Acquisition
+
+A Camera denotes a particular image source, such as a locally connected or network camera. Gecko exposes its stable name, known streams and modes (format, resolution, frame rate), access state, and supported actions. Discovery and control depend on the connection implementation; information that cannot be obtained is marked unknown.
+
+A Source Point selects a Camera and a supported stream or mode, acquires images, and exposes them through its processing interface. The Camera binding is saved in the App configuration. Subsequent connections through Edges join Point interfaces. Restarting a Line does not change the Camera’s identity and does not by itself restart the camera.
+
+```text
+Camera entrance → Source Point in Line entrance → Edge → Inference Point
+```
+
+A Camera describes a particular source; an Axis describes Gecko’s ability to work with a supported source type; a Device is hardware for executing processing. A recorded file can be a Source Point input for an experiment, but does not itself become a Camera. The “one source → one Line” policy does not imply exclusive ownership of a Camera: use by multiple Lines requires connection support or shared acquisition, along with validation of access and load constraints.
 
 ## 4. A Line and Its Points
 
@@ -282,6 +300,7 @@ Gecko jetson-01
 ├── platform: Jetson
 ├── Device cpu-0: arm64 architecture, cores, and logical CPUs
 ├── Device gpu-0: characteristics, memory, state
+├── Camera entrance: connection, streams and modes, access state
 └── Axes: verified available execution capabilities
 ```
 
@@ -296,7 +315,7 @@ App composition can be expanded as a tree, but execution dependencies form a gra
 ```text
 App inspection
 ├── Line camera: its own runtime requirements
-│   ├── Source Point: implementation requirements
+│   ├── Source Point: implementation requirements, binding to Camera entrance
 │   ├── Inference Point: selected option requirements
 │   │   └── local binding to Device gpu-0
 │   └── internal Edges: compatibility and resource requirements
@@ -367,7 +386,7 @@ A View executes outside Point processing. Its definition does not promise a sepa
 ## 10. Target Workflow and Early Versions
 
 1. The user specifies a task, inputs, and constraints, for example by providing a video to test an idea. Gecko instances must already be running on available machines and platforms; the need to start additional participants is reported as a condition of the selected option.
-2. Gecko exposes discovered Mesh participants, their Devices, Axes, known Point implementations, running Block providers, and service preparation capabilities. For options using connections between nodes, it automatically checks supported paths and saves bandwidth, latency, measurement time, and conditions.
+2. Gecko exposes discovered Mesh participants, their Devices, Cameras, Axes, known Point implementations, running Block providers, and service preparation capabilities. For options using connections between nodes, it automatically checks supported paths and saves bandwidth, latency, measurement time, and conditions.
 3. Gecko proposes App options with compatible Point implementations, Line composition, Edges, Anchors, Block providers, available data and actions, Views, and placement.
 4. For each option, Gecko reports what is ready now, what requires preparation, and which dependencies are unsatisfied. The user selects an option or changes constraints and composition; the App saves the selected composition and bindings.
 5. Check each Line’s combined requirements, Devices and resource availability, every Edge, Anchor conditions, and View bindings. Explain limitations before startup.
@@ -378,6 +397,10 @@ A View executes outside Point processing. Its definition does not promise a sepa
 This is the target scenario, not a claim of an existing implementation. Early versions may limit tasks, implementations, and preparation mechanisms; manual selection remains available. The initial practical scenario is a camera or file and one Line with local processing, or shared inference through a Block. Discovery, proposed compositions, preparation, and execution are separate steps; selection before startup does not promise migration or failover while running.
 
 ## 11. Vocabulary Changes
+
+### From Version 0.6 to 0.7
+
+A Camera denotes a particular image source with stable identity, streams or modes, and access conditions. A Source Point acquires its data for a Line. A Camera is distinct from a compute Device, an Axis capability, and a recorded file; discovered or connected Cameras are available during App selection.
 
 ### From Version 0.5 to 0.6
 
@@ -429,6 +452,7 @@ The Kubernetes comparison retains its original meaning: Gecko understands media/
 ## 12. Open Questions
 
 - Configuration and interface formats, their versions, and identity.
+- Camera identity, supported connections, stream and mode descriptions, control, and shared access rules.
 - Rules for exposing Point interfaces through a Line; the distinction between parameters and control inputs.
 - Formats for control/view/trace declarations, UI hints, and View bindings; View placement and execution.
 - Command and change acknowledgments, representation updates, and UI behavior on connection loss.
@@ -446,4 +470,4 @@ The Kubernetes comparison retains its original meaning: Gecko understands media/
 - Known service preparation mechanisms, model and artifact acquisition, progress, cleanup after failures, and process selection for Gecko-native providers.
 - When migration, load balancing, and recovery of running participants are needed.
 
-These questions refine implementation while preserving the foundation: Gecko discovers Devices and advertises Axes; an App defines a shared experience for evaluating a task using Mesh capabilities regardless of interaction mechanism; Lines define execution boundaries; Points organize processing and declare control/view/trace capabilities; Views present an App to users; Edges define supported connections; Blocks are defined by domain contracts; Anchors describe Line dependencies on their providers. Provider preparation is a separate optional capability that does not change a Block’s contract.
+These questions refine implementation while preserving the foundation: Gecko discovers Devices, exposes Cameras, and advertises Axes; an App defines a shared experience for evaluating a task using Mesh capabilities regardless of interaction mechanism; Lines define execution boundaries; Points organize processing and declare control/view/trace capabilities; Views present an App to users; Edges define supported connections; Blocks are defined by domain contracts; Anchors describe Line dependencies on their providers. Provider preparation is a separate optional capability that does not change a Block’s contract.
