@@ -6,7 +6,7 @@ Version 0.12 · October 14, 2026 · [Русский](1-mesh-app.ru.md)
 
 **Status:** material for architectural decisions. Decentralized fact exchange through pub/sub, access to partial discovery results, and the intent to provide a shared App contract for different users are established. The local App creation entry point, authority to accept changes in the first version, independent App identity, optional permanent observation, and separation of Build from commissioning have been defined. Accepted decisions and participant state are exposed in a shared App publication space. Assignment of planner and coordinator responsibilities, commissioning details, and recovery remain open. Other stages, scenarios, and expected lower-layer capabilities are working hypotheses for discussion; the target workflow and domain contract requirements have not yet been approved. The document does not describe implemented capabilities.
 
-**Document boundary:** this document defines the pub/sub broker's role in the Mesh and its minimum requirements, and discusses the use of Mesh capabilities, App construction, and coordination. Pub/sub is an established architectural foundation; message update and delivery mechanisms belong to the broker. Accepted answers and remaining questions are collected in the decision queue in section 5. New decisions are recorded at the Mesh / App level; lower-layer requirements are not being changed yet and will be agreed after the entire queue has been discussed.
+**Document boundary:** this document defines the pub/sub broker's role in the Mesh and its minimum requirements, and discusses the use of Mesh capabilities, App construction, and coordination. Pub/sub is an established architectural foundation; message update and delivery mechanisms belong to the broker. Accepted answers and remaining questions are collected in the temporary architecture decision queue. New decisions are recorded at the Mesh / App level; lower-layer requirements are not being changed yet and will be agreed after the entire queue has been discussed.
 
 ## 1. Mesh
 
@@ -69,7 +69,7 @@ A Line combines its own requirements with those of its Points and internal Edges
 
 ## 3. Working Model of Discovery and App Preparation
 
-Init, Postinit, Build, and App are provisional names for discussing discovery, preparation, and use of a composition. The separation of Build completion from App commissioning has been accepted (§3.4); other boundaries, activities, and transition criteria depend on the remaining decisions in section 5. The descriptions below show the proposed content of this model, not a complete approved workflow or requirements for lower-layer operations. New nodes may be undergoing discovery while one App is being built and another is running. Readiness is evaluated for a particular set of participants, facts, and a selected composition.
+Init, Postinit, Build, and App are provisional names for discussing discovery, preparation, and use of a composition. The separation of Build completion from App commissioning has been accepted (§3.4); other boundaries, activities, and transition criteria depend on the remaining questions in the temporary architecture decision queue. The descriptions below show the proposed content of this model, not a complete approved workflow or requirements for lower-layer operations. New nodes may be undergoing discovery while one App is being built and another is running. Readiness is evaluated for a particular set of participants, facts, and a selected composition.
 
 | Stage | Activities | Result |
 |---|---|---|
@@ -207,9 +207,9 @@ The shared decision and the actual outcome of applying it are exposed separately
 
 Exchange relies on the accepted model of access to current published state and subsequent changes (§1.2). Specific keys, record formats, placement of retained state, and delivery mechanisms are defined during integration. Behavior after reconnection and during incomplete publication still needs to be agreed with the App operation protocol. Domain contracts and new lower-layer requirements are not established here.
 
-## 5. Mesh / App Architecture Decision Queue
+## MESH / APP ARCHITECTURE DECISION QUEUE
 
-The queue retains questions about the App scenario and necessary lower-layer capabilities. Accepted parts of decisions are noted after the table; remaining questions continue to be discussed. Responsibility and task specification are determined first, followed by App operations and necessary information. The target workflow and first-version scope are recorded after decisions have been checked; requirements for lower-layer domain contracts will be agreed after the entire queue has been discussed. Expected discussion outputs are not lower-layer commitments. Broker role and minimum requirements are addressed separately in section 1.2.
+This temporary list retains questions about the App scenario and necessary lower-layer capabilities. Accepted parts of decisions are noted after the table; remaining questions continue to be discussed. Responsibility and task specification are determined first, followed by App operations and necessary information. The target workflow and first-version scope are recorded after decisions have been checked; requirements for lower-layer domain contracts will be agreed after the entire queue has been discussed. Expected discussion outputs are not lower-layer commitments. Broker role and minimum requirements are addressed separately in section 1.2.
 
 | Step | Open Questions | Decision Output |
 |---|---|---|
@@ -228,7 +228,7 @@ The queue retains questions about the App scenario and necessary lower-layer cap
 | **13** | When are automatic recovery, control transfer, migration, and balancing needed? Which experiment limits and startup conditions are needed for an agent? | Explicitly selected automation scope and experiment limits; basic failure behavior is defined in preceding steps |
 | **14** | Are the decisions sufficient for an end-to-end scenario from user input to an observable result and subsequent change? Which lower-layer capabilities are necessary and compatible with their models, and which are optional, deferred, or rejected? | An agreed workflow with executors, inputs, outputs, and failure behavior; first-version scope and confirmed requirements with responsible layers |
 
-### 5.1. Accepted Parts of Decisions and Remaining Questions
+### ACCEPTED PARTS OF DECISIONS AND REMAINING QUESTIONS
 
 No step is fully closed yet. The table above retains the complete set of questions; the table below identifies the parts already decided.
 
@@ -246,7 +246,7 @@ Authorization is deferred until 1.0.0, and ACLs until 2.0.0. These dates do not 
 
 Decisions can be checked against an example: processing video from a file or Camera in one Line with local processing, then a variant with inference through a Block or an additional compute node. The example may include a permanent node, a node for temporary computation, a detector, and a result accessible to both a human and an agent, as well as operation without an observer and user node disconnection before and after a commissioning decision. It does not prescribe an operation sequence or first-version scope. Declaration exchange through a pub/sub broker remains the initial architecture decision; domain contracts and lower-layer requirements will be agreed after the entire queue has been discussed.
 
-## 6. Vocabulary Changes
+## 5. Vocabulary Changes
 
 ### From Version 0.11 to 0.12
 
@@ -264,7 +264,7 @@ Decisions can be checked against an example: processing video from a file or Cam
 | Previously | Now |
 |---|---|
 | A scenario for checking decisions and lower-layer hypotheses are described in separate sections 5 and 6 | Both sections are removed; their open questions are included in a single decision queue |
-| The decision queue is in section 7 | Section 5 combines responsibility, App scenario, and lower-layer capability agreement questions |
+| The decision queue is in section 7 | A single queue combines responsibility, App scenario, and lower-layer capability agreement questions |
 
 ### From Version 0.9 to 0.10
 
