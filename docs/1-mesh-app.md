@@ -1,12 +1,12 @@
 # Mesh and App
 
-Version 0.9 · October 13, 2026 · [Русский](1-mesh-app.ru.md)
+Version 0.12 · October 14, 2026 · [Русский](1-mesh-app.ru.md)
 
 [Glossary](0-concepts.md) · [Gecko / Axis](2-gecko-axis.md) · [Line / Point / Edge / View](3-line-point-edge-view.md) · [Block / Anchor](4-block-anchor.md)
 
-**Status:** a working design framework. Decentralized fact exchange, access to partial discovery results, and a shared App contract for different users are established. The four stages frame the discussion; task reception, plan construction, and App responsibility remain open decisions. The document does not describe implemented capabilities.
+**Status:** material for architectural decisions. Decentralized fact exchange through pub/sub, access to partial discovery results, and the intent to provide a shared App contract for different users are established. The local App creation entry point, authority to accept changes in the first version, independent App identity, optional permanent observation, and separation of Build from commissioning have been defined. Accepted decisions and participant state are exposed in a shared App publication space. Assignment of planner and coordinator responsibilities, commissioning details, and recovery remain open. Other stages, scenarios, and expected lower-layer capabilities are working hypotheses for discussion; the target workflow and domain contract requirements have not yet been approved. The document does not describe implemented capabilities.
 
-**Document boundary:** this document defines the pub/sub broker's role in the Mesh, its minimum requirements, how Mesh capabilities are used, and how an App is built and coordinated. Pub/sub is an established architectural foundation; message update and delivery mechanisms belong to the broker. Requirements for lower-layer domain capabilities are listed in section 6, and the Mesh / App decision queue is in section 7.
+**Document boundary:** this document defines the pub/sub broker's role in the Mesh and its minimum requirements, and discusses the use of Mesh capabilities, App construction, and coordination. Pub/sub is an established architectural foundation; message update and delivery mechanisms belong to the broker. Accepted answers and remaining questions are collected in the decision queue in section 5. New decisions are recorded at the Mesh / App level; lower-layer requirements are not being changed yet and will be agreed after the entire queue has been discussed.
 
 ## 1. Mesh
 
@@ -44,7 +44,7 @@ An App defines a composition for a task and a shared experience for interacting 
 
 Access to App capabilities and operations must have the same meaning for an engineer, an agent, and a programmatic consumer. Discovery, compatibility validation, and explanations of missing readiness belong to Gecko. The division between task formulation, graph proposal, scoring, and option selection has not yet been defined.
 
-An App candidate description exists before its participants are created. The `App` stage below denotes the selected composition being ready for use, not the first appearance of the App concept.
+In the model under discussion, an App candidate description exists before its participants are created. The provisional `App` stage below denotes the selected composition being ready for use, not the first appearance of the App concept. The candidate format and readiness rules remain to be defined.
 
 ### 2.1. The App Dependency Graph
 
@@ -67,9 +67,9 @@ In this example, Recorder Point receives video and calls Block recordings operat
 
 A Line combines its own requirements with those of its Points and internal Edges. When using a Block, the Line requires its contract and readiness through an Anchor; a remote provider’s hardware requirements do not become local Line requirements. Shared diagnostics can expose Device relationships reported by the provider. No additional term is introduced for a hardware dependency: requirements and concrete bindings belong to execution configuration.
 
-## 3. Discovery and App Preparation Stages
+## 3. Working Model of Discovery and App Preparation
 
-These are four stages of the target scenario, not a single global lifecycle for the entire Mesh. New nodes may be undergoing discovery while one App is being built and another is running. Readiness is evaluated for a particular set of participants, facts, and a selected composition.
+Init, Postinit, Build, and App are provisional names for discussing discovery, preparation, and use of a composition. The separation of Build completion from App commissioning has been accepted (§3.4); other boundaries, activities, and transition criteria depend on the remaining decisions in section 5. The descriptions below show the proposed content of this model, not a complete approved workflow or requirements for lower-layer operations. New nodes may be undergoing discovery while one App is being built and another is running. Readiness is evaluated for a particular set of participants, facts, and a selected composition.
 
 | Stage | Activities | Result |
 |---|---|---|
@@ -88,7 +88,7 @@ Supported preliminary connection checks and a picture of potential execution can
 
 ### 3.2. Build
 
-Build applies to a particular App candidate and includes:
+In the working model, Build applies to a particular App candidate. The following activities are proposed for discussion; whether each is mandatory, who performs it, and under what conditions have not yet been selected:
 
 1. Checking selected implementation requirements and current resource availability.
 2. Measuring required connection segments under the selected formats and load conditions. Individual measurements are supplemented by testing the composition's combined load.
@@ -101,17 +101,27 @@ Preparation order within Build depends on the dependency graph. Tests require th
 
 ### 3.3. App: Readiness and Use
 
-At the App stage, the user can start and stop processing, observe results, attach supported Views, provide samples, and use a real Camera. Readiness, current execution, and validation results are distinct states.
+For the provisional App stage, starting and stopping processing, observing results, attaching supported Views, providing samples, and using a real Camera are under discussion. The set of available operations remains to be selected. Readiness, current execution, and validation results are distinct states.
 
-Switching from a sample to a Camera, changing processing mode, or attaching a View may change load and requirements. Seamless changes are not assumed. Gecko must report what can be applied immediately, what requires a restart, and which Build results need to be revalidated; exact rules have not been selected.
+Switching from a sample to a Camera, changing processing mode, or attaching a View may change load and requirements. Seamless changes are not assumed. The proposal for discussion is to expose what can be applied immediately, what requires a restart, and which validation results must be obtained again; exact rules and responsibility for this information have not yet been selected.
+
+### 3.4. Build Completion and Commissioning
+
+Build completion records a prepared composition for a particular App revision, validation results, and limitations. It does not yet authorize operational execution. Temporary test runs belong to validation and do not mean the App has been commissioned; their rules remain open.
+
+Commissioning is a separate operation on the selected revision. Preparation and commissioning progress are exposed in the Mesh. Before the commissioning decision, participants do not begin operational execution or declare themselves participants in a running App. Being "prepared for an App" differs from "executing an App."
+
+Operational execution is authorized by a commissioning decision for a particular revision published as one complete record in the shared App space (§4.8). Before this decision is recorded, an interrupted operation does not authorize participants to complete commissioning or start processing independently. Completed activities and their results remain visible in the Mesh.
+
+After the decision is recorded, its application and the transition to a working state are tracked separately through participant declarations. Accepting a decision does not imply simultaneous receipt by all nodes or simultaneous physical startup. Delivery and retrieval of published state belong to broker integration; confirmation that publication has completed, behavior during partial startup, recovery of an unfinished operation, and retention or release of prepared resources remain to be defined. These boundaries do not approve a complete commissioning protocol or introduce new lower-layer requirements.
 
 ## 4. Placement, Constraints, and Interaction
 
 ### 4.1. Composition and Execution Boundaries
 
-Gecko's target capability is to expose the Mesh and obtain compatible App options for a task, including Point implementations, Line placement, and Block providers. Where options are built, who accepts the request, and which part an agent performs are open questions. Available now is distinguished from requiring preparation and an unsatisfied dependency. This information, selection actions, and validation results are available regardless of interaction mechanism. Selecting an option records the composition; manual assembly and constraint changes are also available.
+Gecko's target capability is to expose the Mesh and obtain compatible App options for a task, including Point implementations, Line placement, and Block providers. The user creates an App through a local Gecko (§4.6); where options are built and which part an agent performs remain open questions. Available now is distinguished from requiring preparation and an unsatisfied dependency. This information, selection actions, and validation results are available regardless of interaction mechanism. Selecting an option records the composition; manual assembly and constraint changes are also available.
 
-Nodes automatically perform supported checks of paths between them to assess bandwidth and latency. Planning considers stream requirements and measurement freshness; an unchecked path is not assumed suitable. Measuring one connection does not guarantee bandwidth for all simultaneous streams or reserve resources. Current resource availability and dependency readiness are rechecked before startup.
+Assessing bandwidth and latency may require checks of paths between nodes. Who initiates and performs them, when they are needed, and whether automated checks are appropriate remain open questions. Measurements must be used with regard to stream requirements and result freshness; an unchecked path is not guaranteed suitable. Measuring one connection does not guarantee bandwidth for all simultaneous streams or reserve resources. The need for and scope of repeat checks before startup are determined together with App readiness rules.
 
 An App can run across several Gecko instances. Each Line is placed entirely on one Gecko instance. Moving a Point’s function beyond its Line requires an explicit structural change: using a Block’s service contract through an Anchor, or extracting part of the processing into another Line with a supported Edge.
 
@@ -169,55 +179,101 @@ An agent may be able to explore hypotheses faster, but its place in transforming
 
 ### 4.6. Responsibility for an App
 
-Decentralized fact exchange does not automatically determine who accepts an App change, stores its current revision, and coordinates Build or startup. Building options and managing a selected composition are distinct responsibilities.
+The user creates an App through a Gecko instance physically located on the same machine. The Mesh may contain several such user nodes; their presence does not require a single main Gecko. A user node may disconnect and is not assumed to be a permanent observation center for the Mesh.
 
-A coordinator for an individual App remains one possible solution, not an agreed part of the model. A main Gecko for the entire Mesh, leader election, a separate App construction service, and automatic control transfer have not been established. Responsibility and behavior under concurrent changes, participant loss, and partially completed operations must be defined.
+An App has its own stable identity, independent of the Gecko that created it. In the first version, authority to accept changes is assigned to that Gecko: it stores the current revision and atomically checks the base revision and saves the accepted next revision. A concurrent change based on an outdated revision is not accepted. Accepted decisions are published in the shared App space (§4.8). The mechanism connecting local persistence and publication, including recovery from interruption between them, remains open.
 
-## 5. Target Workflow and Early Versions
+While the Gecko that created the App is unavailable, new App changes are not accepted. Commissioned execution does not require its continuous presence and continues when dependencies are available, according to participant policies. A user on another machine can observe available declarations and results, but in the first version cannot change this App through another Gecko. An optional observer (§4.7) does not gain authority to accept changes by being appointed.
 
-1. The user specifies a task, inputs, and constraints, for example by providing a video to test an idea. Gecko instances must already be running on available machines and platforms; the need to start additional participants is reported as a condition of the selected option.
-2. Gecko exposes discovered Mesh participants, their Devices, Cameras, Axes, known Point implementations, running Block providers, and service preparation capabilities. For options using connections between nodes, it automatically checks supported paths and saves bandwidth, latency, measurement time, and conditions.
-3. App candidates are built from Mesh facts and the task, with compatible Point implementations, Line composition, Edges, Anchors, Block providers, available data and actions, Views, and placement. The proposal mechanism and agent role remain open.
-4. For each option, Gecko reports what is ready now, what requires preparation, and which dependencies are unsatisfied. The user selects an option or changes constraints and composition; the App saves the selected composition and bindings.
-5. Perform Build for the selected candidate: refine connections, test Points, prepare participants in dependency order, and validate Anchors and the whole App. Node participation and execution policies are part of the test conditions.
-6. Save the selected composition and Build results. If required preparation is unavailable, report the unmet condition; such an option is not ready.
-7. At the App stage, recheck readiness before starting Lines and provide results, data, and traces. The user can attach Views and select supported inputs, including samples and Cameras.
-8. Change processing and repeat evaluation. Gecko reports change scope and required revalidation. A Mesh change may produce new proposals, but does not rebuild a running App by itself.
+Candidate construction, operation coordination, and permanent observation are distinct responsibilities. A planner proposes composition and placement; a coordinator organizes application of the selected decision and collects operation results; an observer monitors state, retains history, and sends notifications. Assignment of these responsibilities among Gecko instances and their relationship to participation characteristics in §4.2 have not yet been defined. Assigning authority to accept changes does not itself make the creating Gecko responsible for all these duties.
 
-This is the target scenario, not a claim of an existing implementation. Early versions may limit tasks, implementations, and preparation mechanisms; manual selection remains available. The initial practical scenario is a file or Camera and one Line with local processing, or shared inference through a Block. This scenario can proceed without waiting for a global Postinit. Selection before startup does not promise migration or failover while running.
+Authorization is deferred until release **1.0.0**, and ACLs until **2.0.0**. User identity, its binding to a node, and transfer of management authority remain future decisions. These responsibilities do not yet define an access role model.
 
-## 6. Mesh / App Requirements for Lower Layers
+### 4.7. Optional Permanent Observation
 
-These are expected domain capabilities on which Mesh / App relies, not a list of reopened architecture questions. The respective layers define their contracts and implementations. This list specifies required outcomes. Broker role and requirements are addressed separately in section 1.2.
+A permanent observer can be appointed for a particular App: a Gecko that monitors state, records history, and sends notifications independently of user node availability. The observer is selected from available nodes marked as "Permanent node." When a suitable choice is obvious, the system proposes its appointment; the user is asked to choose when the choice is not obvious. If no suitable node exists, the user can explicitly select a node for observation or use the App without an observer. Suitability criteria and what makes a choice obvious remain to be defined.
 
-| Lower Layer | Requirement | Purpose for Mesh / App |
+An observer is optional: a one-off test or processing a video segment may run without permanent history and notifications. Appointment as an observer does not authorize App changes or imply automatic recovery or composition restructuring. Its exact operations, behavior when it fails, and division of responsibilities with the planner and coordinator remain open.
+
+Dynamic App restructuring when new permanent nodes appear is deferred until **2.0.0**. Until then, a new node expands the available options but does not automatically change a running composition. This restriction does not define other recovery, migration, or balancing policies.
+
+### 4.8. App Decisions and State in the Mesh
+
+An App has a shared addressable publication space for accepted decisions and participant state. A decision refers to a particular operation and App revision and is published as one complete record linking its contents to the selected revision and participant set. Publication integrity differs from the atomic revision check used to accept a change (§4.6) and does not imply simultaneous execution by all participants.
+
+Each Gecko declares which Apps it serves, the nature of its participation, and its actual participation state. Preparation progress, execution participation, and observation are distinct; a prepared part of the composition is not declared running merely because Build activities have completed.
+
+The shared decision and the actual outcome of applying it are exposed separately. Publishing permission to execute does not confirm successful startup of all participants. Direct node checks supplement declarations when readiness or state needs clarification; polling alone does not replace a commissioning decision.
+
+Exchange relies on the accepted model of access to current published state and subsequent changes (§1.2). Specific keys, record formats, placement of retained state, and delivery mechanisms are defined during integration. Behavior after reconnection and during incomplete publication still needs to be agreed with the App operation protocol. Domain contracts and new lower-layer requirements are not established here.
+
+## 5. Mesh / App Architecture Decision Queue
+
+The queue retains questions about the App scenario and necessary lower-layer capabilities. Accepted parts of decisions are noted after the table; remaining questions continue to be discussed. Responsibility and task specification are determined first, followed by App operations and necessary information. The target workflow and first-version scope are recorded after decisions have been checked; requirements for lower-layer domain contracts will be agreed after the entire queue has been discussed. Expected discussion outputs are not lower-layer commitments. Broker role and minimum requirements are addressed separately in section 1.2.
+
+| Step | Open Questions | Decision Output |
 |---|---|---|
-| **[Gecko / Axis](2-gecko-axis.md), Devices, and Cameras** | Each Gecko exposes its own resources, sources, capabilities, and access conditions through addressable references | Build a picture of available execution and select a particular binding; global camera identification is not a prerequisite |
-| **Gecko / Axis** | Publishes discovery results progressively, reports completion and limitations, and distinguishes unknown, unavailable, and confirmed information | Use partial information during Init and evaluate known participant readiness during Postinit |
-| **[Line / Point / Edge](3-line-point-edge-view.md)** | Expose known implementations, inputs and outputs, requirements, supported connections, and execution constraints | Check App candidate feasibility and potential placement without creating every participant in advance |
-| **Gecko / Axis and Line / Point / Edge** | Provide resource availability, connection measurements, and supported execution policies with their usage conditions | Evaluate options and account for node participation, latency/throughput, and Build results |
-| **[Block / Anchor](4-block-anchor.md)** | Expose contracts, available providers, preparation capabilities, readiness, and dependency conditions | Select providers and include preparation and validation in the Build plan |
-| **Gecko / Axis, Line, and Block** | Provide supported validation, preparation, startup, shutdown, and change operations, with results and limitations | Execute the selected plan, observe progress, and handle partially completed operations |
-| **[Point / View](3-line-point-edge-view.md)** | Provide control/view/trace, observable results, and presentation binding conditions | Evaluate hypotheses and use an App through a shared contract for a human or an agent |
+| **1** | How are task reception, candidate construction, storage of the selected App, and management of its operations assigned? Is an App coordinator needed, who performs that role, and how is it reached? Who accepts changes and stores the current revision? | A responsibility model without a required main Gecko for the entire Mesh; role assignment, change acceptance, and behavior when a managing participant is lost |
+| **2** | What does the user provide: a task description, a ready composition, or parameters for a supported template? How are input data, constraints, and success criteria specified? Who accepts this input? | Selected ways to specify tasks and success criteria, with responsibilities assigned according to step 1 |
+| **3** | Who transforms a task into a candidate, proposes implementations and placement, scores options, and selects one, and on what information? Are candidate exploration, manual selection, and an agent needed; what is each one's role? | Composition construction and selection method, candidate format, and planning automation boundaries |
+| **4** | What information about resources, Devices, Cameras, Axes, capabilities, and access conditions is needed from Gecko / Axis? How is it addressed and a particular binding selected? Are Camera declarations from individual nodes sufficient, or is global camera identification needed? | Minimum execution and source information agreed with Gecko / Axis, and rules for references and binding selection |
+| **5** | How are partial discovery results used, current pass completion, limitations, and freshness reported, and unknown, unavailable, and confirmed information distinguished? Which known participant set is sufficient for an App; are separate Init and Postinit stages needed and what are their boundaries? | Rules for incomplete information and discovery sufficiency, with agreed Gecko / Axis information |
+| **6** | What information about known Line / Point / Edge implementations, inputs and outputs, requirements, supported connections, and constraints is needed to validate a candidate without creating every participant in advance? | Minimum implementation and compatibility descriptions agreed with the Line / Point / Edge layer |
+| **7** | How does placement account for node participation characteristics, available resources, and latency/throughput goals? Which connection measurements are needed, who initiates and performs checks, and when is automation appropriate? How are measurement conditions and freshness, combined load, and supported execution policies considered? | Admission and placement selection policy with explicit limitations; information and checks agreed with Gecko / Axis and Line / Point / Edge |
+| **8** | What information about Block contracts, available providers, preparation capabilities, readiness, and Anchor conditions is needed to select a composition? Who prepares, manages, reuses, and releases a provider? | Dependency information and rules for provider participation in App preparation and execution agreed with Block / Anchor |
+| **9** | Which checks and preparation are necessary and who performs them? Is a separate Build needed? How are preparation dependencies, Point and Anchor checks, temporary test runs, reservation, combined load assessment, and cleanup after failure organized? What is sufficient for startup and what is checked again? | Selected App preparation and validation model, activity assignments, readiness criteria, and repeat check rules |
+| **10** | Which validation, preparation, startup, shutdown, and change operations are needed from Gecko / Axis, Line, and Block? How are they assigned between layers, progress, results, and limitations obtained, and partially completed operations handled? | Agreed minimum operations and results with responsible layers; coordination rules for the selected composition |
+| **11** | How do users, agents, and programmatic consumers obtain results and use an App through a shared contract? Which control/view/trace and View binding conditions are needed from Point / View? How are files, samples or Cameras, processing, presentations, policies, and composition changed; what requires repeat validation, restart, or Build? | App use and change rules, result observation, and presentation binding agreed with lower layers |
+| **12** | How are unavailable dependencies, failed checks, partial preparation, and participant loss reported? What happens with concurrent changes and failure of a managing participant or shared Block provider? | Basic failure and conflict behavior, diagnostics linked to App state, and responsibility assignment |
+| **13** | When are automatic recovery, control transfer, migration, and balancing needed? Which experiment limits and startup conditions are needed for an agent? | Explicitly selected automation scope and experiment limits; basic failure behavior is defined in preceding steps |
+| **14** | Are the decisions sufficient for an end-to-end scenario from user input to an observable result and subsequent change? Which lower-layer capabilities are necessary and compatible with their models, and which are optional, deferred, or rejected? | An agreed workflow with executors, inputs, outputs, and failure behavior; first-version scope and confirmed requirements with responsible layers |
 
-For example, Camera declarations from Gecko A and Gecko B remain information relative to their respective nodes. Mesh / App uses them to select a source and connection mechanism. Global camera identification is not required to publish this information.
+### 5.1. Accepted Parts of Decisions and Remaining Questions
 
-## 7. Mesh / App Architecture Decision Queue
+No step is fully closed yet. The table above retains the complete set of questions; the table below identifies the parts already decided.
 
-Decisions should be made in the following order, relying on the requirements in section 6. App responsibility is defined first; specific operations can then be assigned. Options in this queue are not yet selected architecture.
-
-| Step | Problem | Decision Output |
+| Step | Accepted | Still to Be Defined |
 |---|---|---|
-| **1** | How are task reception, candidate construction, storage of the selected App, and management of its operations assigned? Is an App coordinator needed, who performs that role, and how is it reached? | A responsibility model without a required main Gecko for the entire Mesh; defines which roles are combined or separate, how changes are accepted, and what happens when a managing participant is lost |
-| **2** | How does the user specify a task and success criteria; who turns them into a candidate, scores options, and selects one? How does an agent participate? | One complete scenario from task to selected composition, with responsibilities assigned according to step 1; a manual path remains |
-| **3** | How does composition selection account for node participation, resources, and latency/throughput goals? Which set of known participants is sufficient? | Admission and placement selection policy based on lower-layer declarations, with explicit candidate constraints |
-| **4** | How does the participant responsible for an App organize Build: preparation dependencies, tests, reservation, combined load evaluation, and failure cleanup? | A Build plan with operation assignments, progress, results, and readiness criteria |
-| **5** | How is a ready App used and how are inputs, Views, policies, and composition changed; which changes require revalidation or another Build? | App operation rules and a reproducible hypothesis evaluation cycle accounting for lower-layer capabilities |
-| **6** | When are automatic recovery, control transfer, migration, and balancing needed? | An explicitly selected automation scope; basic failure behavior is defined already in steps 1 and 4–5 |
+| **1** | Creation through a local Gecko; independent App identity; change acceptance and current revision storage by the creating Gecko in the first version; execution without its continuous presence (§4.6) | Planning and coordination assignments, how to reach them, relationship of responsibilities to node participation characteristics; recovery of unfinished operations |
+| **2** | The local Gecko accepts user input when creating an App | Input forms, input data, constraints, and success criteria |
+| **9** | Build completion is separate from commissioning; preparation does not authorize operational execution (§3.4) | Checks, executors, completion criteria, repeat checks, test runs, reservation, and cleanup |
+| **10** | Decisions are published as complete records in the shared App space; participant states and direct checks expose application outcomes (§4.8) | Operations and their assignment, exact commissioning protocol, publication confirmation, partial execution, and recovery |
+| **11** | Permanent observation, history, and notifications are optional (§4.7); available state can be observed from another user node | Shared use contract, Views, change rules, and exact observer capabilities |
+| **12** | One party accepts changes in the first version, with an atomic revision check; while it is unavailable, no new changes are accepted, and commissioned execution continues when dependencies are available | Recovery between persistence and publication, partial commissioning, failures of executors, dependencies, shared Blocks, and the observer |
+| **13** | Transfer of management authority is outside the first version; dynamic restructuring when new permanent nodes appear is deferred until 2.0.0 | Other recovery, migration, and balancing mechanisms; agent experiment limits |
 
-The discussion can use an example with one permanent node, one node for temporary computation, a file or Camera, a detector, and a result accessible to both a human and an agent. Nodes already publish capabilities through a pub/sub broker meeting section 1.2 requirements. This example first establishes the responsibility model, then assigns candidate construction, Build, and repeat evaluation. Domain contracts are developed in lower layers according to section 6 requirements; exchange mechanisms belong to the broker.
+Authorization is deferred until 1.0.0, and ACLs until 2.0.0. These dates do not resolve architectural responsibility assignments. Steps **3–8** and **14** remain open; selecting where authority to accept changes resides does not determine who performs planning.
 
-## 8. Vocabulary Changes
+Decisions can be checked against an example: processing video from a file or Camera in one Line with local processing, then a variant with inference through a Block or an additional compute node. The example may include a permanent node, a node for temporary computation, a detector, and a result accessible to both a human and an agent, as well as operation without an observer and user node disconnection before and after a commissioning decision. It does not prescribe an operation sequence or first-version scope. Declaration exchange through a pub/sub broker remains the initial architecture decision; domain contracts and lower-layer requirements will be agreed after the entire queue has been discussed.
+
+## 6. Vocabulary Changes
+
+### From Version 0.11 to 0.12
+
+| Previously | Now |
+|---|---|
+| App responsibility is entirely open | Local creation, App identity, and authority to accept changes assigned to the creating Gecko in the first version are defined; planning and coordination assignments remain open |
+| Permanent observation is not distinguished | An optional observer for state, history, and notifications is added; the user is asked to choose when a suitable option is not obvious |
+| The boundary between Build and operational execution is not established | Build completion is separate from commissioning; a published decision authorizes execution, with outcomes tracked by participant |
+| Publications are primarily considered Gecko declarations | A shared App decision and state space is added without selecting specific keys or formats |
+| Partially accepted answers are not noted in the queue | Decision status is added; no step is declared fully closed, and lower-layer requirements are not being changed yet |
+| Authorization, ACL, and dynamic restructuring dates are not specified | Authorization is deferred until 1.0.0; ACLs and dynamic restructuring when new permanent nodes appear until 2.0.0 |
+
+### From Version 0.10 to 0.11
+
+| Previously | Now |
+|---|---|
+| A scenario for checking decisions and lower-layer hypotheses are described in separate sections 5 and 6 | Both sections are removed; their open questions are included in a single decision queue |
+| The decision queue is in section 7 | Section 5 combines responsibility, App scenario, and lower-layer capability agreement questions |
+
+### From Version 0.9 to 0.10
+
+| Previously | Now |
+|---|---|
+| The target workflow is described before responsibility and App operation rules are selected | The example is used to check open decisions; the workflow is recorded after they are agreed |
+| A list of lower-layer capabilities establishes outcome requirements | Capabilities are described as hypotheses whose necessity and assignment are still being checked |
+| Init, Postinit, Build, and App are presented as target scenario stages | Stages are described as a working model with unapproved boundaries and transitions |
+| The decision queue relies on already established lower-layer requirements | The queue ends with scenario validation and joint agreement on lower-layer requirements |
 
 ### From Version 0.8 to 0.9
 
