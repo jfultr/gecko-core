@@ -1,8 +1,8 @@
 # Gecko and Axis
 
-Version 0.7 · October 10, 2026 · [Русский](2-gecko-axis.ru.md)
+Version 0.7 · October 10, 2026 · [Русский](model.ru.md)
 
-[Glossary](0-concepts.md) · [Mesh / App](1-mesh-app.md) · [Line / Point / Edge / View](3-line-point-edge-view.md) · [Block / Anchor](4-block-anchor.md)
+[Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.ru.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.md) · [Block / Anchor](../3-block-anchor/model.md)
 
 ## 1. Gecko
 
@@ -26,7 +26,7 @@ Requirements belong to a particular implementation. An Inference Point with a lo
 
 Capability and current resource availability are distinct: having TensorRT does not confirm free GPU memory, and having a camera does not confirm access at launch. Resources, Anchor conditions, and Edge support are checked separately.
 
-Hardware is described in the [Devices section](0-concepts.md#4-devices).
+Hardware is described in the [Devices section](../0-concepts/index.md#4-devices).
 
 ## 3. Vocabulary Changes
 

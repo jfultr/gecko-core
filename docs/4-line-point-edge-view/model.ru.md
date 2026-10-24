@@ -1,8 +1,8 @@
 # Line, Point, Edge и View
 
-Версия 0.7 · 10 октября 2026 года · [English](3-line-point-edge-view.md)
+Версия 0.7 · 10 октября 2026 года · [English](model.md)
 
-[Глоссарий](0-concepts.ru.md) · [Mesh / App](1-mesh-app.ru.md) · [Gecko / Axis](2-gecko-axis.ru.md) · [Block / Anchor](4-block-anchor.ru.md)
+[Глоссарий](../0-concepts/index.ru.md) · [Mesh / App](../1-mesh-app/model.ru.md) · [Gecko / Axis](../2-gecko-axis/model.ru.md) · [Block / Anchor](../3-block-anchor/model.ru.md)
 
 ## 1. Line и её Points
 

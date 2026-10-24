@@ -1,8 +1,8 @@
 # Block и Anchor
 
-Версия 0.7 · 10 октября 2026 года · [English](4-block-anchor.md)
+Версия 0.7 · 10 октября 2026 года · [English](model.md)
 
-[Глоссарий](0-concepts.ru.md) · [Mesh / App](1-mesh-app.ru.md) · [Gecko / Axis](2-gecko-axis.ru.md) · [Line / Point / Edge / View](3-line-point-edge-view.ru.md)
+[Глоссарий](../0-concepts/index.ru.md) · [Mesh / App](../1-mesh-app/model.ru.md) · [Gecko / Axis](../2-gecko-axis/model.ru.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.ru.md)
 
 ## 1. Block и Anchor: общие сервисы и зависимости
 

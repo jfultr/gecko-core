@@ -1,6 +1,6 @@
 # Gecko — Concept Map
 
-Version 0.10 · October 23, 2026 · [Русский](0-concepts.ru.md)
+Version 0.10 · October 23, 2026 · [Русский](index.ru.md)
 
 This document establishes a shared vocabulary for designing the first versions of Gecko. An App defines a shared experience for working on a task, from available capabilities to a verifiable result. The other concepts describe processing, its execution, supported connections, and dependencies on shared services. API formats, configuration formats, and concrete implementation mechanisms will be chosen separately.
 
@@ -8,16 +8,16 @@ The sources are the conversations [“Gecko and Kubernetes Comparison”](https:
 
 **Status:** an agreed working framework for design. It does not describe implemented capabilities. Capability discovery, automatic connection checks, proposed App compositions, and preparation of known services are part of the target UX. Version 1.0.0 targets a complete local workflow on one Gecko; 2.0.0 outlines cooperation across multiple Gecko instances; 3.0.0 outlines a dynamic Mesh and product operation, including a persistent Observer. Migration, load balancing, and seamless failover remain future design directions rather than current guarantees.
 
-The Mesh exchanges facts and capabilities without centralized management and exposes partial discovery results. Pub/sub is an architectural foundation. Init and Postinit describe discovery, Build is preparation through calls selected by an external Planner, and Activation separately permits operational execution. App denotes the composition, not a stage. The current version boundaries and responsibilities are defined in [Mesh / App (Russian)](1-mesh-app.ru.md). Message delivery belongs to the transport integration; domain operations belong to the relevant Gecko layers.
+The Mesh exchanges facts and capabilities without centralized management and exposes partial discovery results. Pub/sub is an architectural foundation. Init and Postinit describe discovery, Build is preparation through calls selected by an external Planner, and Activation separately permits operational execution. App denotes the composition, not a stage. The current version boundaries and responsibilities are defined in [Mesh / App (Russian)](../1-mesh-app/model.ru.md). Message delivery belongs to the transport integration; domain operations belong to the relevant Gecko layers.
 
 These questions refine implementation while preserving the foundation: Gecko discovers Devices, exposes Cameras, and advertises Axes; an App defines a shared experience for evaluating a task using Mesh capabilities regardless of interaction mechanism; Lines define execution boundaries; Points organize processing and declare control/view/trace capabilities; Views present an App to users; Edges define supported connections; Blocks are defined by domain contracts; Anchors describe Line dependencies on their providers. Provider preparation is a separate optional capability that does not change a Block’s contract.
 
 **Related documents:**
 
-1. [Mesh / App (Russian)](1-mesh-app.ru.md)
-2. [Gecko / Axis](2-gecko-axis.md)
-3. [Line / Point / Edge / View](3-line-point-edge-view.md)
-4. [Block / Anchor](4-block-anchor.md)
+1. [Mesh / App (Russian)](../1-mesh-app/model.ru.md)
+2. [Gecko / Axis](../2-gecko-axis/model.md)
+3. [Line / Point / Edge / View](../4-line-point-edge-view/model.md)
+4. [Block / Anchor](../3-block-anchor/model.md)
 
 ## 1. Core Idea
 
@@ -70,22 +70,22 @@ Development follows a **downward requirements pass, then an upward experimental 
 
 The initial Mesh / App pass fixes scope and required behavior. It does not require every format, storage mechanism, timeout or transport setting to be settled before descending. Those questions are kept in a **separate return list**, refined when development comes back to Mesh / App. Lower levels still define the concrete contracts needed for their own experiments. A design decision, an experiment and an implemented capability have distinct statuses; completion is supported by evidence rather than inferred from a document being written.
 
-The [development progress document](plans/development-cycle.ru.md) records the current position, downward and upward milestones, evidence, and the separate Mesh / App return list. It is the current plan; earlier architecture discussion plans remain historical context.
+The [development progress document](../development-cycle.ru.md) records the current position, downward and upward milestones, evidence, and the separate Mesh / App return list. It is the current plan; earlier architecture discussion plans remain historical context.
 
 ## 2. Twelve Core Terms
 
 | Term | Definition | Practical Boundary |
 |---|---|---|
-| **[Gecko](2-gecko-axis.md)** | A running runtime instance on a particular machine or platform. | Discovers Devices, exposes Cameras, advertises capabilities, manages local Lines, and connects Blocks through contracts; may support preparation of known services. |
-| **[Mesh](1-mesh-app.ru.md)** | A decentralized system for exchanging facts and capabilities among Gecko instances. | Exposes partial discovery results and potential execution locations; supports connection checks and App options without a required main Gecko. A new participant does not change a running composition by itself. |
-| **[App](1-mesh-app.ru.md)** | A composition for a task and a shared experience for interacting with its capabilities, actions, and results. | An external Planner constructs options; Gecko provides validation, startup, observation, and modification regardless of interaction mechanism. The selected option records Lines, Edges, Anchors, Blocks, Views, implementations, and placement. |
-| **[Line](3-line-point-edge-view.md)** | A named processing chain of Points with shared configuration, lifecycle, and diagnostics. | A concrete execution unit: one dedicated process with the Gecko runtime on one Gecko instance. |
-| **[Point](3-line-point-edge-view.md)** | An addressable logical processing group within a Line. | Declares processing interfaces and control/view/trace capabilities; this does not imply an independent process or restart. |
-| **[View](3-line-point-edge-view.md)** | A user-facing representation of an App combining data and state displays with available user actions. | Consists of UI elements explicitly bound to declared App capabilities; a visual representation is not required to access App capabilities and does not define a separate process. |
-| **[Block](4-block-anchor.md)** | A domain service capability defined by a Gecko contract. | A particular service is connected as a Block after contract validation; hardware requirements and startup belong to the provider implementation. Can serve several Lines. |
-| **[Anchor](4-block-anchor.md)** | A Line’s dependency on a shared service, specifying the required contract and the conditions under which the Line can operate. | References a particular Block; records required capabilities, readiness conditions, and behavior when unavailable. |
-| **[Edge](3-line-point-edge-view.md)** | A supported way to connect one Point’s output to another Point’s input, with defined rules and constraints. | Applied to particular Point interfaces during assembly; the Points may belong to the same Line or different Lines. An exposed Line interface refers to a Point interface. |
-| **[Axis](2-gecko-axis.md)** | An execution capability advertised by a Gecko instance. The plural is **Axes**. | Matched against local requirements of selected implementations; Block availability is checked through Anchors. |
+| **[Gecko](../2-gecko-axis/model.md)** | A running runtime instance on a particular machine or platform. | Discovers Devices, exposes Cameras, advertises capabilities, manages local Lines, and connects Blocks through contracts; may support preparation of known services. |
+| **[Mesh](../1-mesh-app/model.ru.md)** | A decentralized system for exchanging facts and capabilities among Gecko instances. | Exposes partial discovery results and potential execution locations; supports connection checks and App options without a required main Gecko. A new participant does not change a running composition by itself. |
+| **[App](../1-mesh-app/model.ru.md)** | A composition for a task and a shared experience for interacting with its capabilities, actions, and results. | An external Planner constructs options; Gecko provides validation, startup, observation, and modification regardless of interaction mechanism. The selected option records Lines, Edges, Anchors, Blocks, Views, implementations, and placement. |
+| **[Line](../4-line-point-edge-view/model.md)** | A named processing chain of Points with shared configuration, lifecycle, and diagnostics. | A concrete execution unit: one dedicated process with the Gecko runtime on one Gecko instance. |
+| **[Point](../4-line-point-edge-view/model.md)** | An addressable logical processing group within a Line. | Declares processing interfaces and control/view/trace capabilities; this does not imply an independent process or restart. |
+| **[View](../4-line-point-edge-view/model.md)** | A user-facing representation of an App combining data and state displays with available user actions. | Consists of UI elements explicitly bound to declared App capabilities; a visual representation is not required to access App capabilities and does not define a separate process. |
+| **[Block](../3-block-anchor/model.md)** | A domain service capability defined by a Gecko contract. | A particular service is connected as a Block after contract validation; hardware requirements and startup belong to the provider implementation. Can serve several Lines. |
+| **[Anchor](../3-block-anchor/model.md)** | A Line’s dependency on a shared service, specifying the required contract and the conditions under which the Line can operate. | References a particular Block; records required capabilities, readiness conditions, and behavior when unavailable. |
+| **[Edge](../4-line-point-edge-view/model.md)** | A supported way to connect one Point’s output to another Point’s input, with defined rules and constraints. | Applied to particular Point interfaces during assembly; the Points may belong to the same Line or different Lines. An exposed Line interface refers to a Point interface. |
+| **[Axis](../2-gecko-axis/model.md)** | An execution capability advertised by a Gecko instance. The plural is **Axes**. | Matched against local requirements of selected implementations; Block availability is checked through Anchors. |
 | **[Device](#4-devices)** | An addressable hardware execution unit accessible to a particular Gecko instance. | A CPU, GPU, or other accelerator with characteristics, internal structure, resources, and state; it is neither a Block nor an Axis. |
 | **[Camera](#5-cameras)** | An addressable source of images from a particular camera, discovered or explicitly connected to Gecko. | Exposes known streams or image acquisition modes and access conditions. A Source Point acquires its data for a Line; a Camera retains its identity independently of the Line and is not a compute Device, Point, or Axis. |
 
