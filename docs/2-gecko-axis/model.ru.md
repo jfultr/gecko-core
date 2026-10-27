@@ -2,7 +2,7 @@
 
 Версия 0.10 · 27 октября 2026 года · [English](model.md) (пока не синхронизирован)
 
-[Глоссарий](../0-concepts/index.ru.md) · [Mesh / App](../1-mesh-app/model.ru.md) · [Сценарий](scenario.ru.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.ru.md) · [Block / Anchor](../3-block-anchor/model.ru.md)
+[Глоссарий](../0-concepts/index.ru.md) · [Mesh / App](../1-mesh-app/model.ru.md) · [Сценарий](scenario.ru.md) · [План D2](work-plan.ru.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.ru.md) · [Block / Anchor](../3-block-anchor/model.ru.md)
 
 ## 1. Gecko
 
