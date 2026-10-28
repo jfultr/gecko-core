@@ -13,10 +13,10 @@ This document illustrates a possible order for reducing risk and producing verif
 | `0.3.0` | Durable accounting | Storage API, persistence before side effects, retry after a lost response, restart, and explicit `unknown` |
 | `0.4.0` | Integration boundaries | Stabilized Client, Executor, Storage, and Transport APIs plus the first Zenoh adapter with common contract tests |
 | `0.5.0` | Access and load control | Trusted caller context, authorization hooks, audit events, quotas, and protection against primary resource-exhaustion scenarios |
-| `0.6.0` | First domain integration | One Axis runs through the module without reconnaissance concepts leaking into Core |
+| `0.6.0` | First domain integration | One Probe runs through the module without reconnaissance concepts leaking into Core |
 | `0.7.0` | Related operations | Validated parent/link/ownership/cancellation-scope model, if justified by a real scenario |
 | `0.8.0` | Failure hardening | Fault injection, crash points, concurrent retries, recovery, and load boundaries |
-| `0.9.0` | Stable-contract candidate | Frozen schemas and APIs, storage migrations, compatibility suite, and integration tests for Axis and an App operation |
+| `0.9.0` | Stable-contract candidate | Frozen schemas and APIs, storage migrations, compatibility suite, and integration tests for Probe and an App operation |
 | `1.0.0` | Stable foundational module | Compatibility, recovery, operations, and security criteria are met; guarantees and limitations are published |
 
 ## Conditions for changing this example

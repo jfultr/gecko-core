@@ -1,8 +1,8 @@
 # Line, Point, Edge, and View
 
-Version 0.7 · October 10, 2026
+Version 0.8 · October 28, 2026
 
-[Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.md) · [Gecko / Axis](../2-gecko-axis/model.md) · [Block / Anchor](../3-block-anchor/model.md)
+[Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.md) · [Gecko / Probe](../2-gecko-probe/model.md) · [Block / Anchor](../3-block-anchor/model.md)
 
 ## 1. A Line and Its Points
 
@@ -96,7 +96,7 @@ A Point has inputs and outputs, but matching data types alone does not permit a 
 | Between Points in different Lines on one Gecko instance | A concrete interprocess data transfer mechanism |
 | Between Points in Lines on different Gecko instances | A concrete network path, formats, and transfer conditions |
 
-`unsupported connection` is a valid validation result. Distinguish supported; unsupported; supported but conditions are unsuitable; and not yet checked. Available Axes do not guarantee a connection. The status of a particular connection is diagnostic information, not the definition of an Edge.
+`unsupported connection` is a valid validation result. Distinguish supported; unsupported; supported but conditions are unsuitable; and not yet checked. Available Capabilities do not guarantee a connection. A Probe can obtain evidence about a particular connection; its status is diagnostic information, not the definition of an Edge.
 
 A Line’s dependency on a Block is described by an Anchor. Checks such as “is Triton reachable?” and “is the model ready?” belong to the Block and Anchor. Block calls are implemented by a domain contract client or adapter; they do not need to be represented as Edges.
 
@@ -136,6 +136,10 @@ The dedicated-process rule for a Line does not describe the internals of the Gec
 
 ## 5. Vocabulary Changes
 
+### From Version 0.7 to 0.8
+
+References use Gecko / Probe. Environment Capabilities are distinguished from diagnostic Probes; connection checks obtain evidence without making an advertised Capability a guarantee that a particular connection works. The earlier Axis name is retained only to explain the vocabulary transition.
+
 ### From Version 0.5 to 0.6
 
 | Previously | Now |
@@ -161,7 +165,7 @@ The dedicated-process rule for a Line does not describe the internals of the Gec
 
 An App combines Lines and UI rather than an arbitrary graph of Points. A Point is a logical group within a Line; a Line is the placement and lifecycle unit. Process is an execution mechanism and diagnostic detail.
 
-Earlier names Component / Dot correspond to Point only in the context of internal Line processing. Capability corresponds to Axis. Earlier Connection denoted a particular connection; a supported Edge is now selected for it. Qualify “node”: Gecko is a runtime instance; Point is an element within a Line.
+Earlier names Component / Dot correspond to Point only in the context of internal Line processing. The former Axis name covered both environment capabilities and diagnostic tasks; these are now distinguished as Capability and Probe. Earlier Connection denoted a particular connection; a supported Edge is now selected for it. Qualify “node”: Gecko is a runtime instance; Point is an element within a Line.
 
 ## 6. Open Questions
 

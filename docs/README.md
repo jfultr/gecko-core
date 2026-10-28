@@ -8,7 +8,7 @@ English is the single documentation language. Documents use filenames without a 
 |---|---|---|
 | Concepts and goal | [Concept map](0-concepts/index.md) | [Development cycle and progress](development-cycle.md) |
 | Mesh / App | [Model](1-mesh-app/model.md) | [Requirements on lower levels](1-mesh-app/lower-level-requirements.md), [revision history](1-mesh-app/history.md) |
-| Gecko / Axis | [Model](2-gecko-axis/model.md) | [Scenario](2-gecko-axis/scenario.md), [D2 plan](2-gecko-axis/work-plan.md), [decision history](2-gecko-axis/history.md), [research](2-gecko-axis/researches/operations-and-reconnaissance.md) |
+| Gecko / Probe | [Model](2-gecko-probe/model.md) | [Scenario](2-gecko-probe/scenario.md), [D2 plan](2-gecko-probe/work-plan.md), [decision history](2-gecko-probe/history.md), [research](2-gecko-probe/researches/operations-and-reconnaissance.md) |
 | Block / Anchor | [Model](3-block-anchor/model.md) | — |
 | Line / Point / Edge / View | [Model](4-line-point-edge-view/model.md) | — |
 | Foundational modules | [Catalog](core-modules.md) | [Operation module](../docs-modules/operation/README.md) |

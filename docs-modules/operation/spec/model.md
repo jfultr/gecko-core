@@ -6,7 +6,7 @@ Specification draft 0.1 · module `0.1.0-dev` · October 28, 2026
 
 ## 1. Purpose
 
-Operation is an independent execution core for requests whose results may not be available at call time. It provides the same mechanics for Axis diagnostics, App preparation and modification, and future domain actions without incorporating their domain logic.
+Operation is an independent execution core for requests whose results may not be available at call time. It provides the same mechanics for Probe diagnostics, App preparation and modification, and future domain actions without incorporating their domain logic.
 
 The module must allow a caller to:
 
@@ -35,14 +35,14 @@ Operation is responsible for:
 
 Operation is not responsible for:
 
-- selecting the next Axis or defining the reconnaissance strategy;
+- selecting the next Probe or defining the reconnaissance strategy;
 - evaluating domain readiness of an App, constructing Build, or making Planner decisions;
 - defining the meaning of inputs, results, blockers, artifacts, or acquired resources of a domain action;
 - automatically rolling back, cleaning up, or resuming arbitrary domain actions;
 - isolating untrusted executor code or securing the executor's own domain logic;
 - making Zenoh an irreplaceable part of the internal core.
 
-An executor defines the domain action and reports observable changes. A consumer decides what to do with the result. For example, an Axis publishes findings through Operation, while Gecko's reconnaissance policy decides which checks to start next.
+An executor defines the domain action and reports observable changes. A consumer decides what to do with the result. For example, a Probe publishes findings through Operation, while Gecko's reconnaissance policy decides which checks to start next.
 
 ## 3. Intended module parts
 

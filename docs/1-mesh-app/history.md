@@ -4,17 +4,23 @@
 
 The entries below preserve discussion history, including superseded decisions and former filenames. The main text defines active rules; references here do not reinstate earlier Build Plan, global App locking, or policy modes.
 
+Earlier diagnostic-task references are normalized to Probe, the term adopted on October 28, 2026; they were called Axis / Axes when those decisions were made. This terminology update does not change the dates or scope of earlier decisions.
+
+### From Version 0.46 to 0.47
+
+October 28, 2026. The former Axis term is split into Probe for a diagnostic task and Capability for an environment execution possibility. §2 distinguishes their declarations and the facts obtained by Probe runs; detailed contracts remain in Gecko / Probe. Links and operation examples use the new vocabulary. The run-relationship example follows the already accepted rule that Gecko policy initiates subsequent checks and Probes do not invoke each other directly. Operation mechanics and implementation version boundaries are unchanged.
+
 ### From Version 0.45 to 0.46
 
-October 28, 2026. Operation is accepted as an independent project foundational module shared by Axis and App operations. Alternatives were mandatory ROS 2 Actions as a foundation or an in-project implementation based on existing architectural references. The in-project implementation was selected: ROS 2 does not become a dependency; [ROS 2 Actions](https://design.ros2.org/articles/actions.html) and [Google Long-running Operations](https://google.aip.dev/151) inform design. §8.2 obligations, including safe retries and recovery after normal restart, remain. A [foundational module catalog](../core-modules.md) is created; separate Operation design and prototyping may begin before D2 completion. Process division, language, storage, and transport profile are not selected.
+October 28, 2026. Operation is accepted as an independent project foundational module shared by Probe and App operations. Alternatives were mandatory ROS 2 Actions as a foundation or an in-project implementation based on existing architectural references. The in-project implementation was selected: ROS 2 does not become a dependency; [ROS 2 Actions](https://design.ros2.org/articles/actions.html) and [Google Long-running Operations](https://google.aip.dev/151) inform design. §8.2 obligations, including safe retries and recovery after normal restart, remain. A [foundational module catalog](../core-modules.md) is created; separate Operation design and prototyping may begin before D2 completion. Process division, language, storage, and transport profile are not selected.
 
 ### From Version 0.44 to 0.45
 
-October 27, 2026. D2 refines §2.3: Init and Postinit remain descriptive concepts; the mandatory signal for completion of “necessary fact collection” is removed. Gecko exposes current Axis work and partial results; no active work does not prove completeness, and an Axis ending with a blocker does not remain running. Gecko / Axis requirements are updated and the [preliminary checks followed by a client request scenario](../2-gecko-axis/scenario.md) is selected. Earlier wording below is history rather than the active rule.
+October 27, 2026. D2 refines §2.3: Init and Postinit remain descriptive concepts; the mandatory signal for completion of “necessary fact collection” is removed. Gecko exposes current Probe work and partial results; no active work does not prove completeness, and a Probe ending with a blocker does not remain running. Gecko / Probe requirements are updated and the [preliminary checks followed by a client request scenario](../2-gecko-probe/scenario.md) is selected. Earlier wording below is history rather than the active rule.
 
 ### From Version 0.43 to 0.44
 
-October 25, 2026. [Requirements on Gecko / Axis, Line / Point / Edge / View, and Block / Anchor](lower-level-requirements.md) are collected in a separate document with expected upward-pass validation. Accepted model rules and version boundaries are unchanged.
+October 25, 2026. [Requirements on Gecko / Probe, Line / Point / Edge / View, and Block / Anchor](lower-level-requirements.md) are collected in a separate document with expected upward-pass validation. Accepted model rules and version boundaries are unchanged.
 
 ### From Version 0.42 to 0.43
 
@@ -54,11 +60,11 @@ October 19, 2026. First-version concurrent operation boundaries are established 
 
 ### From Version 0.33 to 0.34
 
-October 19, 2026. The first version establishes no automatic deletion of minimum records of other accepted requests, including standalone Axes (§8.2). Operation identity and request comparison data persist; reports and artifacts may be deleted separately. The deleted-App exception remains. Concurrent retries are clarified as providing the same one-execution guarantee. Resolved minimum-record retention questions are removed; plan group 2 closes at the model level. Concrete mechanisms and detailed report retention periods remain integration work.
+October 19, 2026. The first version establishes no automatic deletion of minimum records of other accepted requests, including standalone Probes (§8.2). Operation identity and request comparison data persist; reports and artifacts may be deleted separately. The deleted-App exception remains. Concurrent retries are clarified as providing the same one-execution guarantee. Resolved minimum-record retention questions are removed; plan group 2 closes at the model level. Concrete mechanisms and detailed report retention periods remain integration work.
 
 ### From Version 0.32 to 0.33
 
-October 19, 2026. A separate detailed report and artifact retention policy is established for operations, including standalone Axes (§8.2). Indefinite availability is unnecessary; deletion does not automatically delete request records or restart the operation. With preserved records a retry returns the previous `operation.id` and explicit report unavailability. Concrete retention periods belong to implementation; retention of other accepted-request records remains in plan group 2.
+October 19, 2026. A separate detailed report and artifact retention policy is established for operations, including standalone Probes (§8.2). Indefinite availability is unnecessary; deletion does not automatically delete request records or restart the operation. With preserved records a retry returns the previous `operation.id` and explicit report unavailability. Concrete retention periods belong to implementation; retention of other accepted-request records remains in plan group 2.
 
 ### From Version 0.31 to 0.32
 
@@ -139,13 +145,13 @@ October 17, 2026. Version 0.14 records a working revision organized by concept; 
 | Previously | Now |
 |---|---|
 | Discovery, preparation stages, responsibilities, and limitations are mixed; questions share one queue | Text is organized by concept; open questions are distributed across domain sections and updated as decisions are accepted |
-| Axis is described mainly as an environment capability | Its relationship to the preliminary diagnostic task model is recorded: individual runs, Gecko's direct Zenoh API, progress, and immediate publication of discovered data; resources use Gecko + resource addressing |
+| Axis originally describes mainly an environment capability (now Capability) | Its relationship to diagnostic tasks (now Probes) is explored: individual runs, Gecko's direct Zenoh API, progress, and immediate publication of discovered data; resources use Gecko + resource addressing |
 | Postinit boundaries need refinement | A common explicit completion status for each Gecko's fact collection is accepted; Postinit is a stage without a separate code entity; blocker effects remain a working hypothesis |
 | Responsibility distribution and node participation are partly described | Planner is external; the creating Gecko coordinates individual operations; Observer is 0 or 1, Interaction 0…N; descriptive roles need no UI display; Participation Profile uses free-form tags without enforced constraints |
 | Point sources and the performance model remain broadly open | 1.0.0 uses built-in Points; a hub is a 2.0.0 direction; dynamic restructuring is a 3.0.0 direction. Line defines policy requirements and reactions; concrete budgets are refined in lower layers and tests |
 | Readiness has no common response form or combination rule | A three-status readiness profile with context and freshness is accepted; participants own internal checks; one explicit bounded poll precedes Activation, without automatic retries |
 | Decision application and cleanup have only broad boundaries | Activation success requires all mandatory participant acknowledgments; partial results return a report without automatic rollback. Cleanup is explicit at a participant or through Coordinator for all preparation, considering shared Blocks |
-| Detailed complex-operation responses lack a common model | Operation Protocol with Operation Report is added: common core, explanations, evidence, resources, decisions, and `application`; report-content tables reside in domain sections and the Axis document |
+| Detailed complex-operation responses lack a common model | Operation Protocol with Operation Report is added: common core, explanations, evidence, resources, decisions, and `application`; report-content tables reside in domain sections and the Probe document |
 | Identity, updates, and execution management are undefined | Accepted: `operation.id/type/parent_id`, safe-retry `request_id`, full snapshots, `sequence`, `reported_at`, five states, progress/blocker/recommendation structures; start/read/observe/cancel API; a new run after an external fix |
 | Integration with transport is unexplored | ROS 2 Actions is a reference; a Zenoh mechanism, responsibility-boundary, and future integration-test map is added without claiming untested guarantees |
 | Remaining significant decisions lack a separate plan | An eight-group temporary plan is retained, with discussion order, deferred details, and subsequent end-to-end scenario validation and review |

@@ -4,11 +4,11 @@
 
 This document passes requirements from the local 1.0.0 model to subsequent documents at steps D2–D4 of the development cycle. Each domain document must define a supported contract and its limitations; after the downward pass, an experiment will test the contract's applicability. These requirements follow from the [Mesh / App model](model.md), without selecting concrete formats, storage mechanisms, or implementations. Return questions R1–R8 remain in the cycle plan and do not delay moving to the next level.
 
-## Gecko / Axis
+## Gecko / Probe
 
-The [domain document](../2-gecko-axis/model.md) must define the minimum local facts and checks; preliminary Axis runs after Gecko startup, conditions for invoking subsequent Axes, and direct invocation of an individual Axis by a client. Required capabilities include run identity, progress, results, blockers, freshness, the state of current Axis work on Gecko, and access to partial results for a client that connects later. Local requests and reports preserve the meaning of `request_id`, Operation Report, and the distinction between unknown and negative results (Mesh / App, §2.2–2.3, §8.2).
+The [domain document](../2-gecko-probe/model.md) must define the minimum local facts and checks; preliminary Probe runs after Gecko startup, conditions for invoking subsequent Probes, and direct invocation of an individual Probe by a client. It must distinguish available Probes from advertised environment Capabilities and define how facts support Capability availability, conditions, and freshness. Required behavior includes run identity, progress, results, blockers, freshness, the state of current Probe work on Gecko, and access to partial results for a client that connects later. Local requests and reports preserve the meaning of `request_id`, Operation Report, and the distinction between unknown and negative results (Mesh / App, §2.2–2.3, §8.2).
 
-On the upward pass, validate the [Gecko startup and client connection scenario](../2-gecko-axis/scenario.md): preliminary and child Axes, partial and final results, direct invocation before an App exists, retrying an accepted request without a second execution, and a new run after conditions change. A blocker in one check does not hide facts already available; the absence of current Axis work does not confirm their completeness.
+On the upward pass, validate the [Gecko startup and client connection scenario](../2-gecko-probe/scenario.md): preliminary and child Probes, partial and final results, direct invocation before an App exists, retrying an accepted request without a second execution, and a new run after conditions change. A blocker in one check does not hide facts already available; the absence of current Probe work does not confirm their completeness.
 
 ## Line / Point / Edge / View
 

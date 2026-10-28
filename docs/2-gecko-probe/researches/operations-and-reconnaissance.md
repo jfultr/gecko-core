@@ -2,11 +2,13 @@
 
 October 28, 2026 · status: research, not an accepted architectural decision
 
-[D2 plan](../work-plan.md) · [Gecko / Axis model](../model.md) · [Operation Report core](../../1-mesh-app/model.md#82-operation-report-core)
+Terminology is normalized after the former Axis concept was split into Probe diagnostic tasks and environment Capabilities. Questions and alternatives below retain their research-time scope; subsequent accepted decisions are recorded in the [model](../model.md) and [history](../history.md).
+
+[D2 plan](../work-plan.md) · [Gecko / Probe model](../model.md) · [Operation Report core](../../1-mesh-app/model.md#82-operation-report-core)
 
 ## Question and Brief Conclusion
 
-Gecko documents already show two related mechanisms: common execution of observable operations, and collection of environment facts through Axis. Their responsibilities should be distinguished. Operation handles request acceptance, execution identity, progress, results, cancellation, and retries. Reconnaissance handles the check set, invocation conditions, diagnostic results, and environment picture. An Axis check uses the operation mechanism; Mesh / App operations use the same core without reconnaissance domain concepts.
+Gecko documents already show two related mechanisms: common execution of observable operations, and collection of environment facts through Probe. Their responsibilities should be distinguished. Operation handles request acceptance, execution identity, progress, results, cancellation, and retries. Reconnaissance handles the check set, invocation conditions, diagnostic results, and environment picture. A Probe check uses the operation mechanism; Mesh / App operations use the same core without reconnaissance domain concepts.
 
 This proposes a logical boundary rather than splitting parts into processes, packages, or repositories. In particular, it does not close A1–A3 or B1 in the D2 plan.
 
@@ -29,12 +31,12 @@ Among the systems studied, none was found whose published contract simultaneousl
 | System | Implemented part | What to study for Gecko |
 |---|---|---|
 | [osquery](https://osquery.readthedocs.io/en/stable/deployment/configuration/) | System facts are accessible through SQL-like queries; scheduling and *discovery queries* enable check sets only on suitable hosts | A source of some OS facts and an example of conditional checks. Active camera and inference tests remain Gecko domain executors |
-| [Velociraptor](https://docs.velociraptor.app/docs/artifacts/) | Named collection procedures contain parameters, sources, applicability conditions, external tool descriptions, and composition mechanisms | A reference for Axis catalog form. Its *artifact* means a collection recipe, whereas an artifact in our model is an obtained result; the terms must not be equated |
+| [Velociraptor](https://docs.velociraptor.app/docs/artifacts/) | Named collection procedures contain parameters, sources, applicability conditions, external tool descriptions, and composition mechanisms | A reference for Probe catalog form. Its *artifact* means a collection recipe, whereas an artifact in our model is an obtained result; the terms must not be equated |
 | [Kubernetes Node Feature Discovery](https://kubernetes-sigs.github.io/node-feature-discovery/stable/get-started/introduction.html) | Feature sources discover node properties; separate rules turn features into Kubernetes declarations | The boundary between a machine observation and a conclusion about its capabilities. Publishing into Kubernetes is not mandatory for Gecko |
 | [Nmap Scripting Engine](https://nmap.org/book/nse-script-format.html) | A script contains an applicability condition, action, and where necessary an execution-order dependency; the condition uses an already discovered subject | A reference for progressively starting specialized checks on discovered objects |
 | [Temporal](https://docs.temporal.io/activity-definition) | Durable workflows, history, and action retries | A recovery and composition reference if a simple local executor proves insufficient. Retrying an Activity can repeat an actual action; the documentation recommends idempotency. This requires separate reconciliation with our prohibition on blind re-execution |
 
-Narrower libraries and tools can execute individual checks. [hwloc](https://www.open-mpi.org/projects/hwloc/) exposes processor, memory, and some device topology; [NVIDIA DCGM](https://developer.nvidia.com/dcgm) offers monitoring and diagnostics for supported data-center GPUs. They can be Axis adapters or sources without defining the common operation protocol or reconnaissance policy.
+Narrower libraries and tools can execute individual checks. [hwloc](https://www.open-mpi.org/projects/hwloc/) exposes processor, memory, and some device topology; [NVIDIA DCGM](https://developer.nvidia.com/dcgm) offers monitoring and diagnostics for supported data-center GPUs. They can be Probe adapters or sources without defining the common operation protocol or reconnaissance policy.
 
 Initial references for detailed comparison: Velociraptor for check descriptions; Nmap NSE and osquery for applicability and invocation; NFD for the transition from facts to advertised capabilities. This assesses fit for Gecko rather than deciding to use their code.
 
@@ -52,7 +54,7 @@ These relationships can diverge. A discovery run can finish while a test trigger
 
 A possible model to consider: retain an origin tree or forest for observation, express dependencies through separate references, and specify cancellation scope separately. New tasks can be added as subjects are discovered without building the whole graph in advance. A discovered fact makes a check a candidate, but actual invocation must consider user intent and permitted load. Under the current model, two different explicit user requests remain two distinguishable runs; matching inputs do not make them retries of one request.
 
-The key B1 question remains: does Axis initiate subsequent checks itself, or report findings from which Gecko selects subsequent runs? A coordinated approach is also possible. This choice affects depth and run-count limits, resource management, composite results, and cancellation.
+The key B1 question remains: does Probe initiate subsequent checks itself, or report findings from which Gecko selects subsequent runs? A coordinated approach is also possible. This choice affects depth and run-count limits, resource management, composite results, and cancellation.
 
 ## 4. Consensus and Interoperability
 
@@ -68,4 +70,4 @@ Standards and conventions cover individual boundaries:
 | Server hardware facts | [DMTF Redfish](https://www.dmtf.org/standards/redfish) | Data source and potential integration point for supporting hardware |
 | Security and configuration checks | [SCAP / OVAL / XCCDF](https://www.open-scap.org/features/scap-components/) | An interoperable language in its domain; does not cover arbitrary media/AI tests |
 
-**Preliminary architectural hypothesis:** a small common operation core, with a check catalog and execution above it, subsequent-check selection rules, and a separate fact picture. External tools connect as data sources or executors of individual Axes. Test this hypothesis with a scenario where device discovery leads to several independent checks and one combined check, while the client cancels one and starts another during execution.
+**Preliminary architectural hypothesis:** a small common operation core, with a check catalog and execution above it, subsequent-check selection rules, and a separate fact picture. External tools connect as data sources or executors of individual Probes. Test this hypothesis with a scenario where device discovery leads to several independent checks and one combined check, while the client cancels one and starts another during execution.

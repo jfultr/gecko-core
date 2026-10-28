@@ -2,7 +2,7 @@
 
 Version 0.7 · October 10, 2026
 
-[Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.md) · [Gecko / Axis](../2-gecko-axis/model.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.md)
+[Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.md) · [Gecko / Probe](../2-gecko-probe/model.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.md)
 
 ## 1. Blocks and Anchors: Shared Services and Dependencies
 

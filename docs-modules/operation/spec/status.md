@@ -8,17 +8,17 @@ October 28, 2026
 
 | Decision | Status | Original context |
 |---|---|---|
-| Operation is an independent foundational module, not part of the reconnaissance system | Accepted | [Foundational module catalog](../../../docs/core-modules.md#core-op-boundary-and-work), [research](../../../docs/2-gecko-axis/researches/operations-and-reconnaissance.md#question-and-brief-conclusion) |
-| The module is implemented within Gecko; ROS 2 Actions and Google LRO are direct references, not dependencies | Accepted | [Mesh / App §8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core), [comparison of existing solutions](../../../docs/2-gecko-axis/researches/operations-and-reconnaissance.md#1-how-similar-is-operation-to-ros-2-action) |
-| Operation does not depend on Axis, App, or their domain entities | Accepted | [CORE-OP catalog entry](../../../docs/core-modules.md#core-op-boundary-and-work), [Mesh / App §8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core) |
+| Operation is an independent foundational module, not part of the reconnaissance system | Accepted | [Foundational module catalog](../../../docs/core-modules.md#core-op-boundary-and-work), [research](../../../docs/2-gecko-probe/researches/operations-and-reconnaissance.md#question-and-brief-conclusion) |
+| The module is implemented within Gecko; ROS 2 Actions and Google LRO are direct references, not dependencies | Accepted | [Mesh / App §8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core), [comparison of existing solutions](../../../docs/2-gecko-probe/researches/operations-and-reconnaissance.md#1-how-similar-is-operation-to-ros-2-action) |
+| Operation does not depend on Probe, App, or their domain entities | Accepted | [CORE-OP catalog entry](../../../docs/core-modules.md#core-op-boundary-and-work), [Mesh / App §8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core) |
 | A request, an execution, and a report are distinct concepts; acceptance does not promise success | Accepted | [Mesh / App §8.1–8.2](../../../docs/1-mesh-app/model.md#81-purpose-and-core-concepts) |
 | The client supplies `request_id`, the receiver supplies `operation.id`, and a safe retry returns the previous operation | Accepted | [Mesh / App §8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core) |
 | Protection against duplicate execution survives a normal restart when accounting is preserved | Accepted | [Mesh / App §8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core) |
 | Client disconnection does not cancel execution, and an unknown outcome is represented explicitly | Accepted | [Mesh / App §7.3](../../../docs/1-mesh-app/model.md#73-unavailability-and-recovery), [§8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core) |
 | Cancellation is a request to stop, not immediate proof of `cancelled`; partial results remain meaningful | Accepted | [Mesh / App §8.2](../../../docs/1-mesh-app/model.md#82-operation-report-core) |
-| A parent relationship must not automatically imply ownership, dependency, or cancellation propagation | Accepted as a boundary | [Research §3](../../../docs/2-gecko-axis/researches/operations-and-reconnaissance.md#3-run-tree-and-dependency-graph), [Axis §3.4](../../../docs/2-gecko-axis/model.md#34-preliminary-axes-and-check-chains) |
-| Axis uses Operation for an individual run but does not select the next check itself | Accepted at the domain level | [Axis §3.4](../../../docs/2-gecko-axis/model.md#34-preliminary-axes-and-check-chains), [Axis §3.6](../../../docs/2-gecko-axis/model.md#36-axis-in-geckos-zenoh-api) |
-| Module work may proceed independently of completing the Axis domain design | Accepted | [Development cycle progress](../../../docs/development-cycle.md#1-route-and-outcomes), [CORE-OP catalog entry](../../../docs/core-modules.md#core-op-boundary-and-work) |
+| A parent relationship must not automatically imply ownership, dependency, or cancellation propagation | Accepted as a boundary | [Research §3](../../../docs/2-gecko-probe/researches/operations-and-reconnaissance.md#3-run-tree-and-dependency-graph), [Probe §3.4](../../../docs/2-gecko-probe/model.md#34-preliminary-probes-and-check-chains) |
+| Probe uses Operation for an individual run but does not select the next check itself | Accepted at the domain level | [Probe §3.4](../../../docs/2-gecko-probe/model.md#34-preliminary-probes-and-check-chains), [Probe §3.6](../../../docs/2-gecko-probe/model.md#36-probe-in-geckos-zenoh-api) |
+| Module work may proceed independently of completing the Probe domain design | Accepted | [Development cycle progress](../../../docs/development-cycle.md#1-route-and-outcomes), [CORE-OP catalog entry](../../../docs/core-modules.md#core-op-boundary-and-work) |
 
 ## 2. Open decisions
 

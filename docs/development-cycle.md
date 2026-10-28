@@ -1,12 +1,12 @@
 # Gecko: Development Cycle Progress
 
-Version 0.6 · October 28, 2026
+Version 0.7 · October 28, 2026
 
 [Cycle and concepts](0-concepts/index.md#12-development-cycle) · [Mesh / App](1-mesh-app/model.md) · [Foundational modules](core-modules.md)
 
 This plan tracks the architectural-level pass for 1.0.0. On the downward pass, refine requirements on lower levels until reaching domain contracts. At the lowest level required by the selected scenario, turn upward: run real experiments, write code, and ascend while refining each level from the results. Directions for 2.0.0 and 3.0.0 retain the longer-term perspective without expanding this pass's obligations.
 
-**Current position:** Mesh / App version boundaries are defined at the model level; the Gecko / Axis downward step is in progress. The [preliminary checks and subsequent client request scenario](2-gecko-axis/scenario.md) is selected, and a [D2 plan by branch and decision](2-gecko-axis/work-plan.md) is prepared; definitions and the responsibility map are next. Domain contracts are not yet complete. The upward pass has not started. This status describes work under this plan, rather than the presence or absence of code throughout the repository.
+**Current position:** Mesh / App version boundaries are defined at the model level; the Gecko / Probe downward step is in progress. The [preliminary checks and subsequent client request scenario](2-gecko-probe/scenario.md) and [D2 plan](2-gecko-probe/work-plan.md) are prepared. A1 distinguishes Probe diagnostic tasks from environment Capabilities; A2–A3 entity lifecycles and the responsibility map are next. Domain contracts are not yet complete. The upward pass has not started. This status describes work under this plan, rather than the presence or absence of code throughout the repository.
 
 ## 1. Route and Outcomes
 
@@ -16,13 +16,13 @@ Document order establishes the initial investigation route rather than a strict 
 |---|---|---|---|
 | D0 | Goals and concepts | Feature delivery latency definition, version boundaries, and pass rules | Recorded in documents |
 | D1 | Down: Mesh / App | 1.0.0 scope, 2.0.0/3.0.0 directions, [requirements on lower levels](1-mesh-app/lower-level-requirements.md), separate return list | Recorded at the model level |
-| D2 | Down: [Gecko / Axis](2-gecko-axis/model.md) | Discovery, local operations, facts, checks, and execution requirements | In progress: scenario and [plan](2-gecko-axis/work-plan.md) prepared; block A is next |
+| D2 | Down: [Gecko / Probe](2-gecko-probe/model.md) | Discovery, local operations, facts, checks, Capabilities, and execution requirements | In progress: A1 accepted; A2–A3 entity lifecycles and responsibility are next in the [plan](2-gecko-probe/work-plan.md) |
 | D3 | Down: [Line / Point / Edge / View](4-line-point-edge-view/model.md) | Supported processing composition, interfaces, lifecycle, data, diagnostics, and reactions | Not started in this cycle |
 | D4 | Down: [Block / Anchor](3-block-anchor/model.md) and required mechanisms | Domain provider and dependency contracts, ownership, preparation and release; concrete experiment boundaries | Not started in this cycle |
 | T | Turn upward at the selected scenario's lowest level | Testable hypotheses, inputs, outcome criteria, and minimum contracts for code selected | Not started |
 | U4 | Up: foundational mechanisms and Block / Anchor | Experiments, code, validated contracts, and limitations | Not started |
 | U3 | Up: Line / Point / Edge / View | Working local processing and validated usage rules | Not started |
-| U2 | Up: Gecko / Axis | Validated discovery, diagnostics, management, and lower-layer integration | Not started |
+| U2 | Up: Gecko / Probe | Validated discovery, diagnostics, management, and lower-layer integration | Not started |
 | U1 | Up: Mesh / App | Refined decisions from section 2, integration, and a validated 1.0.0 end-to-end scenario | Not started; return questions await this step |
 | U0 | Goal evaluation | Assessment of the path from a task to verified functionality, identified limitations, and the next pass | Not started |
 
@@ -32,7 +32,7 @@ Foundational modules with independent contracts are listed in the [catalog](core
 
 ## 2. Remaining Decisions Needed to Make 1.0.0 Specific Enough to Implement
 
-**Separate Mesh / App return list, step U1.** These questions do not currently need to be closed before moving to Gecko / Axis. On the downward pass, pass necessary requirements down; lower layers make their own contracts concrete. On the upward pass, collect validated results and use them to refine Mesh / App decisions. Early observations can be recorded here without declaring a question resolved.
+**Separate Mesh / App return list, step U1.** These questions do not currently need to be closed before moving to Gecko / Probe. On the downward pass, pass necessary requirements down; lower layers make their own contracts concrete. On the upward pass, collect validated results and use them to refine Mesh / App decisions. Early observations can be recorded here without declaring a question resolved.
 
 | ID | Return question | Outcome at U1 | Status |
 |---|---|---|---|
@@ -58,7 +58,7 @@ These rules aim to produce a contract sufficient for the next step sooner and re
 4. Before moving on, perform one end-to-end review of the scenario and consistency with neighboring documents: terms, links, responsibilities, request retries, partial results, and failures. Correct contradictions in active rules; add new questions to the return list with a specified resolution step.
 5. On the upward pass, test assumptions through experiments and code. Record the observed result and limitation in the log, then update affected contracts. Maintain documentation in English and update related pages together.
 
-For Gecko / Axis, it is sufficient to describe preliminary and subsequent Axis runs on one Gecko, its state of current Axis work, client connection to facts already available, direct invocation, progress, results, errors, freshness, and safe retries, and to pass execution requirements down. Closing all R1–R8 questions is not required before this transition.
+For Gecko / Probe, it is sufficient to describe preliminary and subsequent Probe runs on one Gecko, its state of current Probe work, client connection to facts already available, direct invocation, progress, results, errors, freshness, and safe retries, and to pass execution requirements down. Closing all R1–R8 questions is not required before this transition.
 
 ### 3.2. Level File Format
 
@@ -78,7 +78,7 @@ These are file roles, rather than a requirement to create empty files in advance
 
 ### 3.3. Tracking Progress
 
-At the start of each level plan, maintain a common progress table covering all items, including open ones. Required columns: **ID, area or question, status, completed work and remaining work**. Keep IDs stable across discussions to connect decisions, history, and tasks. State the update date and nearest next step beside the table. The [Gecko / Axis progress table](2-gecko-axis/work-plan.md#d2-progress) is an example.
+At the start of each level plan, maintain a common progress table covering all items, including open ones. Required columns: **ID, area or question, status, completed work and remaining work**. Keep IDs stable across discussions to connect decisions, history, and tasks. State the update date and nearest next step beside the table. The [Gecko / Probe progress table](2-gecko-probe/work-plan.md#d2-progress) is an example.
 
 Architectural development statuses: `open`, `under discussion`, `partially accepted`, `accepted at the model level`, `deferred until a specified step`. For a partial decision, explicitly identify the accepted part and remaining questions. An item becomes fully accepted only when its entire scope is closed; a deferred item states the reason and return step. Previously accepted rules also apply to open items.
 
@@ -88,15 +88,18 @@ A summary may count items by status. These counts describe the state of question
 
 ## 4. Progress Log
 
+Earlier diagnostic-task references use the current Probe term; these tasks were called Axis / Axes before the October 28 terminology decision. Earlier dates, version references, and decision scope are preserved.
+
 | Date | Step | Change and evidence | Next action |
 |---|---|---|---|
-| 2026-10-23 | D0–D1 | The [concepts](0-concepts/index.md) describe the goal and cycle. [Mesh / App 0.43](1-mesh-app/model.md) is split into local 1.0.0, distributed 2.0.0, and dynamic 3.0.0; persistent Observer belongs to 3.0.0. Model documentation, without experiments or implementation | Continue down to Gecko / Axis; retain R1–R8 until U1 |
-| 2026-10-25 | D2 preparation | Work order and active document format recorded in §3; the [Mesh / App model](1-mesh-app/model.md), [requirements down](1-mesh-app/lower-level-requirements.md), and [history](1-mesh-app/history.md) are already separate | Apply the format to Gecko / Axis and continue downward |
-| 2026-10-27 | D2 | The [Gecko / Axis scenario](2-gecko-axis/scenario.md) is selected: preliminary Axis chains, partial facts, a late client connection, and an addressed check. [Mesh / App §2.3](1-mesh-app/model.md#23-discovery-and-axis-work) and [Gecko / Axis §3.4](2-gecko-axis/model.md#34-preliminary-axes-and-check-chains) are refined: current Axis work state does not signal discovery completeness. Recorded in documents, without an experiment | Define domain contracts for Gecko state and Axis runs for this scenario |
-| 2026-10-27 | D2 plan | An [architectural development plan](2-gecko-axis/work-plan.md) is recorded: branches A–F, decisions and dependencies, scenario variants, 1.x horizon, delegated task requirements, and completion criterion. Writing the plan does not close its listed decisions | Analyze A1–A3: Axis meaning, entities, and responsibility |
-| 2026-10-27 | D2: parts of B1, B2, C3, and D2 | [Gecko / Axis model 0.11](2-gecko-axis/model.md#34-preliminary-axes-and-check-chains) accepts shared rules for preliminary and client runs; a scenario variant adds cancellation and an additional chain. The [plan](2-gecko-axis/work-plan.md#41-accepted-parts-of-decisions) distinguishes accepted parts from open questions; reasons are retained in [history](2-gecko-axis/history.md). Model decision without an experiment | Continue A1–A3; refine tree cancellation, contention, and partial results in B–D; validate the shared interface at U2 |
-| 2026-10-28 | D2: parts of A3 and B1 | [Gecko / Axis model 0.12](2-gecko-axis/model.md#34-preliminary-axes-and-check-chains) accepts: Axis publishes findings; Gecko's reconnaissance policy selects and starts subsequent checks under applicability rules. The [plan](2-gecko-axis/work-plan.md#41-accepted-parts-of-decisions) and [history](2-gecko-axis/history.md#2026-10-28-gecko-policy-selects-subsequent-checks) reflect responsibility boundaries, three considered approaches, and open details. Model decision without an experiment | Refine applicability condition form and run relationships; validate starting a subsequent check from a partial finding at U2 |
-| 2026-10-28 | Cycle rules | §3.3 requires a progress table at the start of each level plan: all items, statuses, accepted parts and remaining questions, updated with decisions. Applied in the [Gecko / Axis plan](2-gecko-axis/work-plan.md#d2-progress) | Maintain tables as decisions proceed and apply the rule to subsequent levels |
+| 2026-10-23 | D0–D1 | The [concepts](0-concepts/index.md) describe the goal and cycle. [Mesh / App 0.43](1-mesh-app/model.md) is split into local 1.0.0, distributed 2.0.0, and dynamic 3.0.0; persistent Observer belongs to 3.0.0. Model documentation, without experiments or implementation | Continue down to Gecko / Probe; retain R1–R8 until U1 |
+| 2026-10-25 | D2 preparation | Work order and active document format recorded in §3; the [Mesh / App model](1-mesh-app/model.md), [requirements down](1-mesh-app/lower-level-requirements.md), and [history](1-mesh-app/history.md) are already separate | Apply the format to Gecko / Probe and continue downward |
+| 2026-10-27 | D2 | The [Gecko / Probe scenario](2-gecko-probe/scenario.md) is selected: preliminary Probe chains, partial facts, a late client connection, and an addressed check. [Mesh / App §2.3](1-mesh-app/model.md#23-discovery-and-probe-work) and [Gecko / Probe §3.4](2-gecko-probe/model.md#34-preliminary-probes-and-check-chains) are refined: current Probe work state does not signal discovery completeness. Recorded in documents, without an experiment | Define domain contracts for Gecko state and Probe runs for this scenario |
+| 2026-10-27 | D2 plan | An [architectural development plan](2-gecko-probe/work-plan.md) is recorded: branches A–F, decisions and dependencies, scenario variants, 1.x horizon, delegated task requirements, and completion criterion. Writing the plan does not close its listed decisions | Analyze A1–A3: Probe meaning, entities, and responsibility |
+| 2026-10-27 | D2: parts of B1, B2, C3, and D2 | [Gecko / Probe model 0.11](2-gecko-probe/model.md#34-preliminary-probes-and-check-chains) accepts shared rules for preliminary and client runs; a scenario variant adds cancellation and an additional chain. The [plan](2-gecko-probe/work-plan.md#41-accepted-parts-of-decisions) distinguishes accepted parts from open questions; reasons are retained in [history](2-gecko-probe/history.md). Model decision without an experiment | Continue A1–A3; refine tree cancellation, contention, and partial results in B–D; validate the shared interface at U2 |
+| 2026-10-28 | D2: parts of A3 and B1 | [Gecko / Probe model 0.12](2-gecko-probe/model.md#34-preliminary-probes-and-check-chains) accepts: Probe publishes findings; Gecko's reconnaissance policy selects and starts subsequent checks under applicability rules. The [plan](2-gecko-probe/work-plan.md#41-accepted-parts-of-decisions) and [history](2-gecko-probe/history.md#2026-10-28-gecko-policy-selects-subsequent-checks) reflect responsibility boundaries, three considered approaches, and open details. Model decision without an experiment | Refine applicability condition form and run relationships; validate starting a subsequent check from a partial finding at U2 |
+| 2026-10-28 | Cycle rules | §3.3 requires a progress table at the start of each level plan: all items, statuses, accepted parts and remaining questions, updated with decisions. Applied in the [Gecko / Probe plan](2-gecko-probe/work-plan.md#d2-progress) | Maintain tables as decisions proceed and apply the rule to subsequent levels |
 | 2026-10-28 | Operation foundational module | A [foundational module catalog](core-modules.md) is created; Operation is defined as an independent in-project implementation with ROS 2 Actions and Google LRO as references. Active rules remain in [Mesh / App §8.2](1-mesh-app/model.md#82-operation-report-core). Separate development is allowed before D2 completion; implementation and experiments have not started | Prepare a module contract and prototype with a test executor; validate integration on the upward pass |
+| 2026-10-28 | D2: A1 terminology | [Gecko / Probe model 0.14](2-gecko-probe/model.md#21-capability-and-probe) separates Probe tasks, Probe runs through Operation, and advertised environment Capabilities. Definitions, examples, diagrams, related documents, directory paths, and links are reconciled; [history](2-gecko-probe/history.md#2026-10-28-axis-split-into-probe-and-capability) records the former Axis name. A1 is accepted at the model level without implementation or experiments | Continue A2–A3; refine Capability identifiers, evidence, freshness, and publication in A2, C1–C2, and D1 |
 
 The earlier [temporary Mesh / App plan](1-mesh-app/archive/work-plan.md) and [revision 0.42 review](1-mesh-app/archive/review-2026-10-22.md) reflect the preceding discussion stage. Their statuses do not imply completion of the current cycle or readiness to implement 1.0.0.
