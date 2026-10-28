@@ -2,7 +2,7 @@
 
 Start with the [goal and concepts](0-concepts/index.md). The [development cycle](development-cycle.md) records the current work route and return questions for the upward pass. The [module catalog](core-modules.md) lists accepted foundational modules and their dependencies.
 
-English documents without a language suffix form the common documentation set. They include the current content of the corresponding Russian documents and can be read independently. Retained `*.ru.md` files are parallel translations; English navigation does not depend on them.
+English is the single documentation language. Documents use filenames without a language suffix; update related pages together when a rule or contract changes.
 
 | Topic | Active document | Supporting documents |
 |---|---|---|
