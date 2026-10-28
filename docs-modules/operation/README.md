@@ -15,6 +15,6 @@ Current version: [`0.1.0-dev`](VERSION). Implementation has not started yet; thi
 
 ## Source-of-truth status
 
-Until the contract is migrated and reconciled, the active common Operation rules remain in [Mesh / App §8](../../docs/1-mesh-app/model.ru.md#8-протокол-операций--operation-protocol), primarily [§8.2](../../docs/1-mesh-app/model.ru.md#82-ядро-operation-report). The files in this module define its boundary, collect its context, and prepare a standalone specification. If they conflict, Mesh / App §8.2 takes precedence.
+Until the contract is migrated and reconciled, the active common Operation rules remain in [Mesh / App §8](../../docs/1-mesh-app/model.md#8-operation-protocol), primarily [§8.2](../../docs/1-mesh-app/model.md#82-operation-report-core). The files in this module define its boundary, collect its context, and prepare a standalone specification. If they conflict, Mesh / App §8.2 takes precedence.
 
 Moving the source of truth must be an explicit decision. After that move, domain documents will reference the versioned module contract and retain only their Axis- or App-specific extensions.
