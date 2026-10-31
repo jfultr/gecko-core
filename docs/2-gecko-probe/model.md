@@ -1,6 +1,6 @@
 # Gecko and Probe
 
-Version 0.14 · October 28, 2026
+Version 0.15 · October 31, 2026
 
 [Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.md) · [Scenario](scenario.md) · [D2 plan](work-plan.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.md) · [Block / Anchor](../3-block-anchor/model.md)
 
@@ -36,6 +36,16 @@ Hardware is described in the [Devices section](../0-concepts/index.md#4-devices)
 Probe results provide evidence that can confirm or refute a Capability's availability under the check's conditions. There is no required one-to-one relationship: several Probes can contribute evidence for one Capability, and one Probe can obtain facts relevant to several Capabilities or facts that do not describe a Capability. Gecko advertises Capabilities using available facts; completion of a run does not by itself establish a Capability or readiness of a selected App.
 
 Capability identifiers, descriptions, evidence references, freshness, and rules for publication, revision, or withdrawal remain open. These are developed with the entity, fact, and client contracts in D2; the terminology decision does not define a new foundational module. Lowercase “capability” also retains its ordinary meaning in Point, Block, control/view/trace, and UI contracts; those uses do not automatically denote an environment Capability.
+
+### 2.2. Reconnaissance and Manual Configuration
+
+**Accepted:** Points and Blocks can be created and configured independently of reconnaissance. Creation does not require a Probe invocation, completion of preliminary checks, or a positive Capability finding. The user can supply source and implementation parameters manually. Reconnaissance simplifies and accelerates this process by exposing discovered sources and available environment facts for selection and parameter reuse.
+
+A discovered camera is visible to the client and provides quick access to configuring a camera Point from the available source parameters. Discovery alone does not create a configured Point. If the camera is not discovered, the user can configure its source manually, for example with an RTSP address. Hardware and processing-backend findings similarly help configure Points and Blocks; limited discovery coverage does not limit which configurations the user can create.
+
+An absent finding does not by itself establish that a Device or Capability is absent or unusable. A negative finding, an unavailable check, and incomplete information must not become a general prohibition on creating Points or Blocks.
+
+Creation and configuration are distinct from execution at a selected location. The selected implementation's execution requirements still apply: an unsupported CPU architecture or an unavailable required backend may prevent execution there without prohibiting creation of the Point or Block. The timing of validation, evidence required for launch, and treatment of unknown compatibility remain open in the corresponding placement, preparation, and execution contracts. This decision does not require a universal blocking/non-blocking classification of Capabilities.
 
 ## 3. Preliminary Probe Model
 
@@ -157,7 +167,26 @@ The topic system must expose the check subject, state and progress, results and 
 
 Concrete keys and formats have not been selected. This decision establishes check and observation addressability without defining the internal Probe tree structure or Build protocol.
 
+### 3.7. Limited Reconnaissance in 1.0.0
+
+**Accepted:** reconnaissance is required in 1.0.0 with a limited set of useful checks that reduces manual discovery and configuration work. The release does not require a comprehensive reconnaissance system. Its domain coverage is:
+
+| Check area | Intended result | Boundary |
+|---|---|---|
+| Basic machine information | Basic CPU information, including architecture, memory information, and disk information | A basic environment picture; exhaustive hardware assessment and performance testing are not required by this scope |
+| Accelerator discovery | Discover and identify GPUs and NPUs through the supported checks | Discovery does not establish execution support. NPU execution support and support for additional accelerator types are deferred beyond 1.0.0 |
+| DeepStream and OpenVINO support | Check and report environment support, with evidence and limitations of the performed checks | Exact validation depth remains open. Installed software alone does not confirm successful execution of a selected workload or support for every accelerator |
+| Camera discovery | Discover cameras through a limited set of supported interfaces, including scenarios involving RTSP sources, and expose findings for convenient configuration | Specific interfaces and RTSP discovery methods remain open; finding every camera or stream is not required |
+
+The [scenario](scenario.md#100-domain-cases-limited-reconnaissance) illustrates these cases and the independent manual configuration path. Exact check profiles, inputs, outputs, applicability conditions, limits, and success criteria remain to be defined. The coverage decision does not prescribe which checks run at startup, require every available check to run, or approve a general extensible reconnaissance framework.
+
+The broader Probe model permits diagnostics and measurements beyond this limited set; that generality does not make every possible check a 1.0.0 obligation. Concrete load-test coverage remains to be reconciled with the Mesh requirements in §3.5. Reconnaissance completeness is not a prerequisite for creating Points or Blocks under §2.2; readiness of a selected composition remains a separate concern.
+
 ## 4. Vocabulary Changes
+
+### From Version 0.14 to 0.15
+
+Limited reconnaissance is included in 1.0.0: basic machine information, GPU/NPU discovery, DeepStream/OpenVINO support checks, and camera discovery including RTSP scenarios. Points and Blocks can be created and configured manually regardless of reconnaissance results; findings simplify configuration. Execution requirements remain separate, with validation and launch policy still open.
 
 ### From Version 0.13 to 0.14
 
