@@ -1,0 +1,31 @@
+zenoh=1.10.2 (pinned in Cargo.toml) arch=x86_64 os=linux
+== start: query outcomes, rejection, timeout, retry, concurrency, normalization
+  A no-queryable: replies=[] elapsed=370.812µs
+  B malformed: [Err("malformed: expected ident at line 1 column 2")]
+  B unknown type: Some(Rejected { code: UnknownOperationType, message: "unknown type nope" })
+  D first=Some(Accepted { operation_id: ec1a67d0-dc70-46a3-aa1b-79e1f4166370, report_key: "gecko/g1/op/ec1a67d0-dc70-46a3-aa1b-79e1f4166370/report", observe_key: "gecko/g1/op/ec1a67d0-dc70-46a3-aa1b-79e1f4166370/observe", retried: false })
+    retry(reordered keys, new trace)=Some(Accepted { operation_id: ec1a67d0-dc70-46a3-aa1b-79e1f4166370, report_key: "gecko/g1/op/ec1a67d0-dc70-46a3-aa1b-79e1f4166370/report", observe_key: "gecko/g1/op/ec1a67d0-dc70-46a3-aa1b-79e1f4166370/observe", retried: true })
+    retry with b=1.0 instead of 1: Some(Rejected { code: RequestIdConflict, message: "request_id reused with different content" })
+  E 32 concurrent retries -> distinct operation ids: 1
+  C late reply: caller replies=[Err("Timeout")] elapsed=303.127375ms
+    retry after timeout: [Ok("{\"outcome\":\"accepted\",\"operation_id\":\"c75ed53b-3806-4695-9020-893d18beb8ea\",\"report_key\":\"gecko/g1/op/c75ed53b-3806-4695-9020-893d18beb8ea/report\",\"observe_key\":\"gecko/g1/op/c75ed53b-3806-4695-9020-893d18beb8ea/observe\",\"retried\":true}")]
+  F two Gecko queryables, default: replies=1
+  F two Gecko queryables, target=All,consolidation=None: replies=2
+== observe-race: attach vs final publication, 200 iterations per pattern
+        subscribe-only: missed_terminal=110/200 p50_to_terminal=512.595µs
+    get-then-subscribe: missed_terminal=2/200 p50_to_terminal=525.442µs
+    subscribe-then-get: missed_terminal=0/200 p50_to_terminal=627.203µs
+       streaming-query: missed_terminal=0/200 p50_to_terminal=600.542µs
+  streaming-query-auto: missed_terminal=200/200 p50_to_terminal=0ns
+== slow-subscriber: 2000 snapshots published back-to-back, consumer sleeps 1 ms/sample
+  ring(32): publish_2000=2.276412ms received=34 gaps=2 last_seq_received=2001 get_latest_seq=2001 get_probe_ok=true get_probe_latency=535.253µs
+  fifo(32): publish_2000=2.13588ms received=2000 gaps=0 last_seq_received=2001 get_latest_seq=2001 get_probe_ok=false get_probe_latency=2.002659769s
+== reconnect: caller link cut for 1.5 s; 300 snapshots published every 20 ms
+  Get during outage: None after 718.705µs
+  first successful Get after restore at Some(3.688542061s)
+  cut_at=600.749825ms restored_at=2.103210215s received=159 last=Some(301)
+  gap: seq 29 -> 171 (resumed at 3.6158024s, 1.512592185s after restore)
+  Get after restore: Some(301)
+== advanced: zenoh-ext AdvancedPublisher(cache=16, heartbeat) / AdvancedSubscriber(history, recovery)
+  late join after 10 puts: history delivered [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  40 puts during outage, cache=16: after restore received 16 samples, first=Some(35) last=Some(50); miss events nb=[24] (restore at 955.278503ms)
