@@ -28,6 +28,14 @@ This roadmap orders verifiable results. A version represents a result only when 
 
 ## Conditions for changing this plan
 
+### Delivery tracking through `0.4.0`
+
+Implementation delivery is tracked in [Gecko Operation — experiments 0.1–0.4](https://linear.app/hakalem-echo-team/project/gecko-operation-experiments-01-04-cfca1e3eaa8d), with one milestone per release. At Farhat's explicit request on November 1, 2026, this delivery plan includes bounded implementation research, Farhat-owned decision points, automated validation, and manual tests performed by Farhat. Accepted rules remain owned by the model and decision register; Linear records execution dependencies and evidence rather than replacing those documents.
+
+Key model decisions are the implementation baseline. New consequential choices are resolved as experiments expose them, with only affected work waiting for a decision. Each release requires recorded automated and manual evidence and Farhat's acceptance. Failed manual checks require linked corrections and retesting. The detailed `0.4.0` scope remains provisional until the earlier experiments are evaluated. Creating these tasks does not imply implementation, validation, or release completion.
+
+### Revising scope from evidence
+
 The roadmap will be revised after `0.1.0` according to observed risks. Later releases may be combined, divided, or reordered. Security is not postponed until `0.5.0`: that row identifies a dedicated integration result, while required security properties must be designed into the first public contract. The initial Zenoh deployment is a restricted test path, not a production security claim.
 
 No intermediate version is required to support multiple languages. The project first needs one reference stack and language-neutral schemas and contract tests. An additional SDK should appear only for a real consumer and must not precede semantic stabilization.
