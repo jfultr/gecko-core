@@ -4,7 +4,7 @@ October 28, 2026 · status: research, not an accepted architectural decision
 
 Terminology is normalized after the former Axis concept was split into Probe diagnostic tasks and environment Capabilities. Questions and alternatives below retain their research-time scope; subsequent accepted decisions are recorded in the [model](../model.md) and [history](../history.md).
 
-[D2 plan](../work-plan.md) · [Gecko / Probe model](../model.md) · [Operation Report core](../../1-mesh-app/model.md#82-operation-report-core)
+[D2 plan](../work-plan.md) · [Gecko / Probe model](../model.md) · [Current Operation contract](../../../docs-modules/operation/spec/model.md)
 
 ## Question and Brief Conclusion
 

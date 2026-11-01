@@ -1,12 +1,12 @@
 # Mesh and App: Architectural Model and Implementation Versions
 
-Document version 0.47 · October 28, 2026
+Document version 0.52 · November 1, 2026
 
 [Glossary](../0-concepts/index.md) · [Goal and development cycle](../0-concepts/index.md#12-development-cycle) · [Plan progress](../development-cycle.md) · [Gecko / Probe](../2-gecko-probe/model.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.md) · [Block / Anchor](../3-block-anchor/model.md)
 
 ## 1. Purpose, Boundaries, and Status
 
-This document defines Mesh / App entities, responsibility, preparation, execution, and observable state. Versions **1.0.0 / 2.0.0 / 3.0.0** denote implementation scope; version **0.47** is the document revision. The text describes intended behavior rather than implemented capabilities.
+This document defines Mesh / App entities, responsibility, preparation, execution, and observable state. Versions **1.0.0 / 2.0.0 / 3.0.0** denote implementation scope; version **0.52** is the document revision. The text describes intended behavior rather than implemented capabilities.
 
 **1.0.0 — reduce feature delivery latency on one Gecko.** A person, agent, or program can discover capabilities, specify a local composition, validate and prepare it, obtain an observable domain result, change configuration, and repeat validation. App and a minimum Mesh layer are present from the first version. One Gecko can use multiple Devices, execute multiple Lines, and access supported network Cameras and external services. Distributing the managed composition across Gecko instances is outside this version.
 
@@ -360,210 +360,41 @@ The report shows released, remaining, in-progress, and unknown resources. Partia
 
 **3.0.0 — direction.** Dynamic Mesh, App restructuring, failure reactions, possible migration and load balancing, and persistent Observer. Automatic recovery and seamless behavior do not follow from a version name and require separate validated decisions.
 
-## 8. Operation Protocol
+## 8. Operation Requirements and App Integration
 
-### 8.1. Purpose and Core Concepts
+### 8.1. Purpose and Consumer Boundary
 
-**1.0.0.** Operation Protocol defines common access to Probe diagnostics, participant preparation, readiness, Activation, Stop, cleanup, and supported changes. Operation Report exposes state, actual results, blockers, and explanations for a person, agent, or program. An individual operation requires neither App nor Coordinator; Build is not an operation type.
+**Gecko 1.0.0.** Mesh / App consumes the [Operation module contract](../../docs-modules/operation/spec/model.md). Operation owns common identities, APIs, execution states, report schemas, cancellation mechanics, and recovery guarantees. This section defines requirements and App-specific use; it does not prescribe Operation internals. The [requirements register](lower-level-requirements.md#operation) traces consumer needs to module contracts and open integration questions.
 
-A request expresses intent, Operation is a particular execution, a decision permits an action where required, and Operation Report is observable progress and outcome. Recommendations are separate from completed actions and are not executed automatically.
+App uses operations for preparation, readiness, Activation, Stop, cleanup, and supported changes. A request, its execution, an App decision permitting an action, and actual decision application remain distinct. Build is a sequence of external Planner calls (§6.1), not an Operation type, parent, or mandatory aggregate report. Individual preparation operations need not belong to an App or Coordinator.
 
-[ROS 2 Actions](https://design.ros2.org/articles/actions.html) remains a domain-model reference: request, distinguishable execution, intermediate feedback, and result. This is neither a ROS 2 dependency nor adoption of all its rules; Gecko transport is Zenoh. Contract formats are refined through the development cycle.
+**Gecko 2.0.0 — direction.** Extend consumption to distributed participants and acknowledgments. **Gecko 3.0.0 — direction.** Use operations for restructuring and recovery. These product directions do not approve additional module releases or universal action resumption.
 
-**2.0.0 — direction.** Applying the common core to operations involving participants across Gecko instances and distributed acknowledgments.
+### 8.2. Requirements on Operation and App-Specific Use
 
-**3.0.0 — direction.** An App restructuring and recovery operation protocol; universal resumption of arbitrary actions is not promised in advance.
+Mesh / App requires distinguishable accepted executions, structured progress and partial outcomes, safe retries after a lost response and normal restart, observation after reconnecting, explicit uncertainty, and cancellation whose actual outcome can be established. Detailed behavior is owned by the [Operation contract](../../docs-modules/operation/spec/model.md); requirement IDs are in [the consumer register](lower-level-requirements.md#operation).
 
-### 8.2. Operation Report Core
-
-**1.0.0.** This core applies to operations of one Gecko, including composite operations on its local participants. Fields are populated where applicable; a field's existence does not require every operation to create an App, child actions, or resources. Semantics apply from the local version onward; schemas and mechanisms are refined from lower-level results.
-
-**Accepted:** implement common Operation mechanics as an [independent foundational module](../core-modules.md#core-op-boundary-and-work) used by Probe and App operations. The module does not depend on their domain entities. [ROS 2 Actions](https://design.ros2.org/articles/actions.html) and [Google Long-running Operations](https://google.aip.dev/151) are architectural references rather than runtime dependencies; ROS 2 is not part of the project foundation. This section remains the active common-rule source until a separate module contract is established. Module work may start independently of completing D2 domain design; integration is validated against corresponding contracts.
-
-A report belongs to a particular operation and participant. Several messages can progressively expose one execution's progress and result; these are not separate accepted decisions. A composite operation links its report to participant reports, allowing navigation from an overall problem to concrete diagnostics.
-
-| Field | Meaning |
-|---|---|
-| `operation` | Object with `id`, `type`, and optional `parent_id`; associates a particular execution's request, progress, and result with a parent operation if present |
-| `sequence` | Increasing snapshot number within a particular operation; determines update order |
-| `reported_at` | Executor-side snapshot generation time; used for diagnostics rather than replacing `sequence` for ordering |
-| `subject` | Participant and operation subject, including configuration or revision where applicable |
-| `context` | Inputs, parameters, dependencies, and App association if the operation relates to an App |
-| `state` | Execution state: `running`, `succeeded`, `failed`, `cancelled`, `unknown`; does not replace participant readiness or decision application results |
-| `progress` | Object with `stage`, `message`, and optional numeric `completed`, `total`, `unit`; exposes the executor's available progress assessment |
-| `result` | Data actually obtained and actions performed, including partial results; domain content is defined in the relevant section |
-| `acquired_resources` | What preparation acquired, created, or reserved, including before failure; not an estimate of future consumption |
-| `blockers` | List of objects with `code`, `subject`, `message`, `evidence`, `next_actions`: obstacles and possible remedies |
-| `limitations` | Known limitations and boundaries of the result obtained |
-| `explanation` | Substantive explanation of completed work, outcome reasons, and significant context for a person or agent |
-| `next_actions` | List of objects with `code`, `message`, `subject`, `instructions`, and optional `request`; recommendations remain separate from performed actions |
-| `evidence` | Supporting measurements, Probe results, diagnostic data, and artifacts |
-| `children` | Relationships to nested operations and participant reports of a composite operation |
-| `details` | Domain information specific to the operation or layer |
-
-Populate applicable report parts. The common core does not require a diagnostic Probe to have an App, create resources, or apply a decision. Significant errors and blockers must be structured; domain details must not be the only place to discover the overall operation outcome.
-
-`acquired_resources` belongs to specific preparation and supports selective or overall cleanup (§7.3). Release results appear separately in `result`: a list of previously acquired resources does not itself confirm cleanup. Using shared or preexisting resources does not mean exclusive ownership. Domain layers define record structures, use/acquisition distinctions, and local release operations. Reporting readiness does not itself imply new resource acquisition.
-
-**Accepted: operation request acceptance.** The receiving Gecko validates a request and responds with acceptance or rejection.
-
-| Request response | Meaning and content |
-|---|---|
-| **Accepted** | Gecko created a particular Operation execution, assigned `operation.id`, and returns its identifier and Operation Report observation address |
-| **Rejected** | No execution was created; the response contains a reason and an explanation understandable to a person and agent |
-
-The receiving Gecko generates the execution identifier and returns it on acceptance. An unknown operation type or invalid parameters may cause rejection. Acceptance confirms neither successful execution nor participant readiness. A blocker discovered while executing an accepted check appears in its Operation Report rather than turning earlier acceptance into rejection.
-
-Acceptance or rejection describes request handling. Operation Report describes a created execution; a rejected request receives no fictitious execution or `state: failed`. Response and observation address formats remain to be refined. A lost acceptance response does not mean rejection. A retry uses the same `request_id` under the following rules.
-
-**Accepted: request retry through `request_id`.** The caller supplies `request_id`. It differs from `operation.id`, which the receiving Gecko assigns to the created execution. Calling the same Gecko again with the same `request_id` and request content returns the previously created operation and observation address without creating another execution. This restores the operation association after a lost acceptance response.
-
-| Situation | Behavior |
-|---|---|
-| Retrying an accepted request with the same `request_id` and content | Return the previously created operation; do not start another execution |
-| The same `request_id` with different parameters or request content | Reject as an identifier conflict; leave the previous operation unchanged |
-| An intentional new attempt, including after fixing a blocker | Use a new `request_id`; on acceptance Gecko creates a new `operation.id` |
-
-**Accepted: protection against duplicate operation creation survives normal Gecko restart.** The receiving Gecko reliably persists the `request_id` to assigned `operation.id` association, data needed to compare request content, and the accepted operation record before starting domain actions, including sending mutating requests to participants. A normal restart with preserved records does not turn an accepted request into a new one.
-
-After such a restart, retrying with the same `request_id` and content returns the previous `operation.id`, observation address, and available report information; no second execution is created. Retrieving the previous operation does not resume preparation or other domain actions. If the outcome is unknown, Gecko exposes that uncertainty and establishes available actual participant state. A persisted `running` snapshot alone does not confirm execution continues after restart. Uncertainty belongs to a particular operation and does not make the whole App busy; receivers determine new-request admissibility (§4.2).
+**App identity and retention requirements.**
 
 **Accepted for 1.0.0: records of accepted mutating App requests are retained throughout the App's existence.** The `request_id` to `operation.id` association and request-content comparison data are not automatically deleted by age, including after operation completion. Detailed Operation Reports, diagnostic data, and artifacts may have separate retention periods; deleting them does not delete the accepted request record or permit re-execution.
-
-**Accepted for 1.0.0: minimum records of other accepted requests are not automatically deleted.** This includes standalone Probe runs outside an App. The `request_id` to `operation.id` association and request-content comparison data are retained; age or completion does not turn an old retry into a new execution. Detailed reports and artifacts may be deleted under a separate policy. The deleted-App exception below remains; no automatic minimum-record expiry protocol is introduced in 1.0.0.
 
 **Accepted: an App's request records may be deleted after the App is deleted.** An old request addressed to a deleted App is rejected without new execution or App recreation, regardless of whether the old `request_id` record remains. A missing record does not make the request admissible: the addressed App must exist first. The deleted App's identifier is not reused (§3.2), so an old request cannot reach a new App under the same identity. This retention exception applies to deleted Apps and does not permit age-based deletion while an App exists.
 
 If the detailed report is unavailable, retrying the same request with the same content returns the previous `operation.id` and an explicit unavailable-report indication. No new execution is created; report unavailability alone does not confirm actions have completed. Other requests are checked under domain contracts without a global App lock (§4.2).
 
-**1.0.0 boundary: automatic recovery of completely lost request records is not provided.** Persisted records are a mandatory part of the receiving Gecko's state. Normal recovery after ordinary restart relies on their preservation. Automatically reconstructing a lost `request_id` → `operation.id` mapping from published reports is outside the first version.
+The module's common retention policy also protects standalone accepted requests; App deletion is a consumer-specific exception. A safe accounting-release interface remains open in Operation. The App domain must enforce permanent rejection of old requests independently of whether accounting remains.
 
-Participant reports for particular preparation calls or other operations may remain accessible through Mesh independently of local request records. Observing execution does not itself restore the original user-request association. Lost records do not justify repeating an old request with an unknown outcome; complete record loss is outside normal 1.0.0 recovery.
+**Domain report content.** App reports identify participants, subjects, selected configuration/revision, dependencies, actual actions, and available results. Common report fields are defined by Operation; App supplies their domain meaning. `acquired_resources` supports selective or overall cleanup (§7.3). Resource acquisition does not prove release or exclusive ownership; release results belong to `result`, and domain participants enforce sharing and ownership rules.
 
-This protects against duplicate operation creation on retries rather than promising atomic domain actions. Concrete persistence and reload mechanisms, request-content comparison, and concurrent retry handling are defined during integration. They must uphold previous-operation retrieval and changed-content conflict rules. Concurrent retries of one request must not create several executions. Concrete report retention periods follow a separate policy; report unavailability and `sequence` preservation after normal restart are defined below.
+Readiness uses `status`, `checks`, and `validity` (§6.3); decision application uses `application` (§8.4). A readiness operation may succeed while returning `not_ready` or `unknown`. The latest retained report does not replace the fresh readiness request before Activation. Final nesting of App profiles within the common report is still open.
 
-**Accepted: minimum Operation API.** Action meaning is defined independently of concrete Zenoh integration keys and mechanisms (§8.6).
-
-| Action | Result |
-|---|---|
-| **Start** | Acceptance with `operation.id` and observation address, or rejection with a reason; retries follow `request_id` rules |
-| **Get report** | Latest available full Operation Report for a particular execution by `operation.id` |
-| **Observe** | Subscribe to new full snapshots of this operation, ordered by `sequence` |
-| **Cancel** | Cancellation acceptance or rejection; actual cessation is confirmed by a subsequent report rather than the response itself |
-
-Retrieving a report neither creates a new execution, repeats a check, nor resumes an operation. For a running operation, return the latest available snapshot; for a completed one, the final snapshot if available. If the report is unavailable, the API explicitly says so; absence of a report does not prove the operation never ran or is not running. Reading does not change retained results.
-
-**Accepted: detailed reports and artifacts may be deleted under a separate retention policy.** Indefinite availability of full Operation Reports, diagnostic data, and files is not required. Their retention policy is separate from accepted request records, including standalone diagnostic Probe operations. Deleting a report or artifact does not itself delete the `request_id` to `operation.id` association or permit re-execution.
-
-With preserved records, retrying the original request returns the previous `operation.id` and explicitly states that its report is no longer available; no check or other action automatically runs again. An intentional new execution uses a new request. Requests to deleted Apps follow the separate rule above: reject without recreating the App. Concrete report and artifact retention periods and deletion mechanisms are defined during implementation; they do not change retry protection or snapshot numbering preservation semantics.
-
-“Latest available” does not mean guaranteed fresh readiness or current executor availability: a consumer considers `sequence`, `reported_at`, domain freshness, and presence information. The explicit new readiness request before Activation (§6.3) remains required. Retrieving a retained report and starting a new check are different API actions.
-
-Detailed report and artifact deletion and an explicit unavailable response are accepted above. Report source, exact unavailable-response formats, concrete retention periods, authority among multiple sources, and read/subscription reconciliation remain integration details validated under the Zenoh map (§8.6).
-
-**Accepted: full Operation Report snapshots.** Every message contains a full snapshot of the particular operation's available state at generation time rather than only changes since the previous message. A recipient can interpret it without replaying all earlier messages of that execution.
-
-Subsequent snapshots retain results obtained, actions performed, acquired-resource information, and applicable blockers and limitations. A state change or refined conclusion appears in a new snapshot; this does not keep a resolved blocker active. Unavailable or unknown facts explicitly remain unknown rather than being reconstructed by the recipient from a missing message. Large artifacts, nested reports, and supporting materials may be references with clear operation ownership.
-
-Completeness means available state, rather than a full event log or every diagnostic file copied into each message. It does not define serialization, storage under one key, latest-value retention, history, or new-subscriber delivery. Zenoh mechanisms and linked-material availability rules are separate. `sequence` determines update order and newest snapshot selection as below.
-
-**Accepted: snapshot order and time.** The executor producing Operation Report increments `sequence` for each new snapshot of one operation. Redelivery of the same snapshot preserves its number. A recipient uses the greatest known `sequence`; a late or duplicate snapshot with a lower or equal number does not replace current state. Different content under one number is not a valid new update.
-
-**Accepted: snapshot numbering survives normal Gecko restart.** The executor persists `sequence` with its report snapshot. Republishing the same retained snapshot preserves number and content; a new snapshot of the same operation receives a greater number. The counter does not reset after restart: after snapshot 12, the same 12 may be republished, while a new result clarification receives the next number. Report clarification neither resumes domain execution nor creates a new execution. Concrete snapshot and number persistence and loading mechanisms are defined during integration and must preserve this order.
-
-Each nested operation has its own `operation.id` and counter. Coordinator separately numbers summary snapshots of its composite operation. Numbers of different operations are not compared; `parent_id` and `children` relate them without a global counter.
-
-`reported_at` is snapshot generation time at the executor, rather than subscriber receipt time. Order follows `sequence` and requires no synchronized Gecko clocks. Message generation time does not replace freshness conditions in `validity`. Number preservation after normal restart is accepted above; exact time format, initial counter value, and persistence mechanisms remain to be defined.
-
-**Accepted: operation identity.** `operation` is an object with these fields:
-
-| `operation` field | Meaning |
-|---|---|
-| `id` | Identifier of a particular operation execution |
-| `type` | Operation kind: Probe check, participant preparation, readiness check, Activation, Stop App, cleanup, App change, and other supported kinds; exact values remain undefined. Build is not a separate operation kind |
-| `parent_id` | Optional parent-operation reference when the execution belongs to a composite operation |
-
-A request and all progress and result messages of one execution share one `operation.id`. A new run after a fix receives a new identifier. A standalone operation has no parent. For example, Gecko's reconnaissance policy can start a subsequent Probe run from another run's finding; each run has its own `id`. If the domain relationship is represented as parent/child, `parent_id` references the originating run and its report can refer to the subsequent run through `children`. Probes do not invoke each other directly; concrete run relationship rules remain in Gecko / Probe. Separate Planner calls preparing an App need not share a Build parent.
-
-The receiving Gecko creates the identifier and returns it on acceptance. Identifier generation, uniqueness scope, `parent_id` transfer, and concrete Zenoh keys remain undefined. `parent_id` relates executions without granting new parent authority or guaranteeing composite-operation atomicity.
-
-**Accepted: `next_actions` structure.** The field contains a list of proposed actions. The same structure is used at report level and inside an individual blocker.
-
-| Proposed action field | Meaning |
-|---|---|
-| `code` | Machine-readable action name; concrete values belong to the domain layer |
-| `message` | What is proposed and why |
-| `subject` | Participant or resource the action concerns |
-| `instructions` | Detailed execution instructions and conditions for a person or agent |
-| `request` | Optional prepared API request description when the action is available through Gecko |
-
-For example, installing a missing driver can be described as instructions for an agent using OS tools, without `request`. A subsequent Probe check may contain a prepared Gecko request description. Concrete `request` schemas, API parameters, and condition forms are refined separately.
-
-A proposed action is not an accepted decision, issued command, or execution confirmation. Execution requires a separate call to the relevant tools or API. Starting a new action through Operation Protocol creates a new `request_id` and, on acceptance, a new `operation.id`. Redelivery of one already sent request preserves its `request_id` under duplicate-execution protection rules. External-tool instructions do not themselves create a Gecko operation.
-
-**Accepted: `blockers` structure.** The field is a list of blocking problems, each represented by an object:
-
-| Blocker field | Meaning |
-|---|---|
-| `code` | Machine-readable reason code, such as `driver_missing`; concrete codes belong to the domain layer |
-| `subject` | Device, participant, or dependency the problem concerns |
-| `message` | Obstacle explanation understandable to a person and agent |
-| `evidence` | Supporting data or diagnostic and related-report references |
-| `next_actions` | Possible remedies and their execution conditions |
-
-For example, a Probe reports a missing NVIDIA driver blocker, attaches diagnostics, and instructs an agent to install the driver and then explicitly start a new check. Recommendations themselves neither authorize nor perform remediation; actual actions appear in corresponding reports.
-
-Multiple blockers remain separate list entries. Their subjects may differ from the report's overall `subject`: an Activation report can expose a particular participant's problem. Blocker evidence and recommendations detail the report's common `evidence` and `next_actions` fields without requiring large materials to be copied. Proposed action structure is defined above; exact reference formats, domain identifiers, and API requests remain to be refined. A blocker does not substitute for `state`: a readiness request can successfully return `not_ready` with a reason.
-
-**Accepted: `progress` structure.** Progress is an object rather than a single number from 0 to 1.
-
-| `progress` field | Meaning |
-|---|---|
-| `stage` | Machine-readable current stage name; concrete names belong to the operation kind |
-| `message` | Work description understandable to a person and agent |
-| `completed` | Completed amount in the stated units, if measurable |
-| `total` | Total amount in the same units, if known |
-| `unit` | Measurement unit, such as frames, bytes, or checks |
-
-Numeric indicators are optional. When the amount is unknown, expose stage and description without inventing a percentage. If `completed` and `total` are both present, they refer to the same measured amount and unit; their scope follows the current stage and domain contract. Changing stage need not preserve the previous counter. `sequence`, rather than progress, remains the strictly increasing snapshot number.
-
-Coordinator may expose a composite operation's stage and link child reports through `children`. Overall completion is not automatically computed by averaging participant progress: durations and work amounts differ. If no overall estimate is defined, do not claim numeric progress. Progress does not replace `state`, readiness, or decision application; reaching the stated amount does not itself confirm successful completion.
-
-**Accepted: execution `state`.** The common core uses these values independently of domain readiness or decision application results.
-
-| `state` | Meaning |
-|---|---|
-| `running` | The operation is executing |
-| `succeeded` | The operation completed successfully |
-| `failed` | The attempt is deemed unsuccessful, including due to a blocker requiring an external fix. The overall outcome of an actually composite operation does not replace actual part states |
-| `cancelled` | The executor confirmed cessation; a cancellation request alone does not establish this state |
-| `unknown` | The observer cannot reliably establish execution state; this does not confirm stopping, failure, or completion |
-
-No `blocked` state waiting for resumption is introduced in 1.0.0. The stopping reason appears in `blockers`; completed work and partial results appear in `result`. After an external fix, create a new run under the rule below.
-
-A successfully executed readiness request may have `state: succeeded` and `status: not_ready` or `status: unknown`: obtaining a conclusion succeeded, but the participant is unready or information insufficient. A blocker in such a conclusion does not make the request itself unsuccessful. Nested operation and participant message `state` values are not replaced by an actually composite operation's overall state. Build is a process of separate Planner calls rather than a separate operation; the Planner assesses overall preparation without a mandatory common Operation Report (§6.1). Failure or uncertainty in one call does not generally prohibit new App operations; receivers determine admissibility (§4.2).
-
-**Accepted: execution cancellation.** Cancellation is requested by `operation.id` from the operation executor. It accepts or rejects the cancellation request; acceptance does not yet confirm cessation. `state: cancelled` is published in a full Operation Report only after confirmed cessation. If an operation has already completed, cancellation does not replace its actual outcome. If an action cannot be interrupted safely, cancellation is rejected with an explanation.
-
-Cancellation neither rolls back completed actions nor triggers automatic cleanup. The report preserves actual actions, partial results, and acquired-resource information; cleanup is requested separately (§7.3). Cancelling observation or a caller-side waiting timeout does not itself cancel execution. In particular, stopping Activation coordination after decision publication does not revoke permission or mean activated processing has stopped.
+**Composite App work and cancellation.**
 
 For a composite operation, Coordinator requests cancellation of active children and collects their actual results. Overall `cancelled` is valid only after confirmed cessation of the composite operation and its active parts. If a part continues, rejects cancellation, or does not respond, the report exposes this and the composite operation is not declared cancelled. Completed child actions are neither rewritten as cancelled nor automatically rolled back.
 
-**Accepted: incomplete cancellation does not replace actual operation state.** The overall report preserves the operation's own state; cancellation results and part states appear separately. While execution is known to continue and the final outcome is not established, the operation remains `running`; if state cannot be established, expose `unknown`. Confirmed `succeeded` or `failed` is not rewritten as cancellation. A part refusing cancellation does not alone determine the entire operation's outcome: it is considered with actual results and overall outcome rules. `cancelled` requires confirmed cessation of the operation itself and all active parts; an already completed actual outcome is preserved.
+This is a Coordinator duty for genuinely composite App work; a parent reference alone grants no cancellation authority. Failed or unknown parts remain visible, and refusal to cancel a part does not alone determine the overall outcome. Overall cleanup follows §7.3. Cancelling Activation coordination after decision publication neither revokes permission nor proves activated processing stopped. Stop App (§6.5) and cleanup remain separate actions.
 
-Request and response formats, concrete safe interruption points, and acknowledgment waiting periods are refined in domain contracts and integration. A common request mechanism does not require every domain operation to support safe cancellation at every stage.
-
-**Accepted for 1.0.0: a new run after an external fix.** If execution cannot continue due to a blocker and requires an external action, the current attempt ends with a report of the blocker and actual results, including partial ones. It does not remain an execution waiting to resume. After a fix, a user or agent explicitly creates a new run with a new identity; no automatic continuation or retry occurs. No universal resume-from-saved-step mechanism is introduced in 1.0.0.
-
-A new run does not imply automatic cleanup of earlier preparation (§7.3). Use of existing state follows the domain contract; an explicit Probe check executes again. A blocker in data does not always mean the operation itself failed: a readiness request can successfully return `not_ready`. This rule concerns ending an attempt requiring an external fix to continue, without conflating `state` and domain results.
-
-The rule does not permit blindly repeating an action with an unknown result: after partial decision application or a lost response, first establish available actual state. Conditions for a safe new request in such cases remain open. An individual Probe ending with a blocker neither hides facts already obtained nor means its execution continues (§2.3).
-
-Readiness (§6.3) and decision application (§8.4) are domain report parts. Readiness preserves agreed `status`, `checks`, and `validity` fields; application uses `application`. Readiness `status` is not a universal operation execution state: `state` is dedicated to that purpose. Final nesting of profiles and the core is not yet selected.
-
-**2.0.0 — direction.** Using the same core for participants across Gecko instances, distributed composite operations, and partial results. Concrete inter-node coordination and retention rules are defined later.
-
-**3.0.0 — direction.** Applying reports to App restructuring and recovery while preserving distinct intent, actual action, and unknown outcome.
+App consumes the module's retry and outcome rules: failure or uncertainty does not impose a global App lock (§4.2); domain admissibility governs a new action. After a fix, a new attempt does not imply cleanup of previous preparation. New cleanup for the remaining scope uses a new request; retransmission of an old request refers to its existing operation.
 
 ### 8.3. Decision and Its Content
 
@@ -585,48 +416,25 @@ The overall report references mandatory participant results. Activation and Stop
 
 **3.0.0 — direction.** Observable restructuring and recovery results that establish actual App configuration.
 
-### 8.5. Open Protocol Decisions
+### 8.5. Open App Integration Decisions
 
-**1.0.0.** Common core meaning, retry protection, and reliability rules are established here. Exact types, required fields, `type` values, codes, parent-reference transfer, request and reference formats, time, initial `sequence`, retention, safe cancellation points, and numeric waiting periods are refined in lower layers and on the upward pass. Lower layers may define their own domain results while preserving common core meaning.
+For Gecko 1.0.0, Mesh / App must refine its operation kinds and domain inputs/results, readiness and application profile nesting, domain admission and safe interruption points, waiting periods, and lifecycle/accounting-release integration. These belong to the [R1–R8 return list](../development-cycle.md#2-remaining-decisions-needed-to-make-100-specific-enough-to-implement).
 
-These questions belong to the [separate R1–R8 return list](../development-cycle.md); completing the entire protocol design is not required before descending to Gecko / Probe. After experiments, check local contract compatibility and record final Mesh / App specifics.
+Common API types, identity comparison, state arbitration, snapshot persistence, and transport adapters are owned by the [Operation decision register](../../docs-modules/operation/spec/status.md). App integration validates that the selected module version satisfies consumer requirements; it does not redefine those mechanisms.
 
-**2.0.0 — direction.** Distributed composite operations, authoritative state sources, and resuming observation across nodes.
+### 8.6. App Integration and Validation with Zenoh
 
-**3.0.0 — direction.** Dynamic management and recovery contracts; scope follows real scenarios rather than protocol universality.
+Gecko uses Zenoh for exchange. The common operation request/report adapter is investigated in [Operation §9](../../docs-modules/operation/spec/model.md#9-transport-adapter-investigation). App integration additionally addresses publication of revisions and complete permission decisions, actual application acknowledgments, and retrieval of current participant state. Transport delivery or caching does not replace domain persistence or establish readiness or successful execution.
 
-### 8.6. Operation Protocol Integration Map for Zenoh
+Minimum local integration validation:
 
-**1.0.0.** Zenoh provides exchange and retrieval of published data; Gecko defines request acceptance, execution, reports, and decisions. A concrete integration profile is not yet selected or tested. Research in an earlier revision is not a test or confirmation that a particular SDK version is current.
-
-| Local-version need | Integration candidate and validation subject |
-|---|---|
-| Request and acceptance response | Query / Queryable; Operation creation and deduplication remain Gecko logic |
-| Full report observation | Publisher / Subscriber; ordinary delivery does not establish durable storage |
-| Current report and decision retrieval | Queryable or supported storage; select an authoritative source and explicit unavailable response |
-| Late connection and resuming observation | Validate built-in history/cache/recovery capabilities of the selected SDK, their limits, and compatibility |
-| Persistence after restart | Validate local storage for request records, snapshots, revisions, and decisions; transport cache does not replace reliable persistence |
-| Ordering | Preserve domain `sequence` and snapshot selection rules independently of transport numbering |
-| Timeout and cancellation | Distinguish response waiting, execution time, and confirmed cancellation |
-| Execution permission | Confirm complete publication, current permission, and actual application by local participants |
-
-Initial reference materials: [Zenoh abstractions](https://zenoh.io/docs/manual/abstractions/), [AdvancedSubscriber 1.10.1](https://docs.rs/zenoh-ext/1.10.1/zenoh_ext/struct.AdvancedSubscriber.html), [filesystem backend](https://github.com/eclipse-zenoh/zenoh-backend-filesystem). These are further-research links rather than a mandatory dependency set. SDKs, versions, and guarantees are checked during implementation.
-
-Minimum upward-pass validation:
-
-- A late subscriber and a client connecting simultaneously with the final publication obtain the available outcome; an old delayed snapshot does not replace current state.
-- A lost acceptance response, concurrent retries, and normal restart do not create a second execution of an accepted request.
-- A retained snapshot preserves content and number after restart; a new clarification receives a greater number without resuming the action.
-- Deleting a detailed App or standalone Probe report does not remove retry protection; an old request returns the previous operation with explicit report unavailability.
-- A request to a deleted App is rejected; its identifier is not used for a new App.
+- An App client reconnects during work or at final publication and obtains available outcomes through Operation.
+- Lost responses, concurrent retries, and a normal restart preserve one accepted execution; unavailable detailed reports do not permit repetition.
+- Requests to a deleted App are rejected without recreation or identity reuse, including after permitted accounting removal.
 - Restart when Activation is confirmed unpublished, published, or unknown preserves §6.4 distinctions; a previous Activation does not bypass current permission validation.
-- Partial local startup, stopping, cleanup, and incomplete cancellation preserve actual participant states; a timeout does not become proof of cessation.
-- Repeating cleanup for the remaining scope uses a new request; other consumers' shared resources are preserved under their contracts.
+- Partial startup, stopping, cleanup, and incomplete cancellation preserve actual participant states; a timeout does not prove cessation.
+- Further cleanup addresses the remaining scope explicitly and preserves shared resources.
 
-This is a test plan rather than results. Completely lost record storage is outside normal 1.0.0 recovery. Tests must validate the selected minimum profile without expanding it into the distributed version.
-
-**2.0.0 — direction.** Testing multi-Gecko presence, network interruptions, distributed decisions, state recovery, and inter-node delivery limits.
-
-**3.0.0 — direction.** Testing exchange and management with dynamic membership, prolonged observation, and App restructuring.
+These are integration criteria, not experimental results. Module-level conformance checks are maintained in [Operation §10](../../docs-modules/operation/spec/model.md#10-validation). Gecko 2.0.0 and 3.0.0 extend domain validation to distributed and dynamic scenarios; they introduce no additional current guarantees.
 
 [Revision history](history.md).

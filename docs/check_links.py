@@ -1,4 +1,4 @@
-"""Check local Markdown file links in the documentation tree."""
+"""Check local Markdown file links in docs/ and docs-modules/."""
 
 from pathlib import Path
 import re
@@ -6,7 +6,8 @@ import sys
 from urllib.parse import unquote
 
 
-root = Path(__file__).resolve().parent
+root = Path(__file__).resolve().parent.parent
+document_roots = (root / "docs", root / "docs-modules")
 links = re.compile(r"\]\(([^)]+)\)")
 errors = []
 anchors = {}
@@ -28,7 +29,7 @@ def headings(document):
         anchors[document] = found
     return anchors[document]
 
-for document in root.rglob("*.md"):
+for document in (path for folder in document_roots for path in folder.rglob("*.md")):
     for line_number, line in enumerate(document.read_text(encoding="utf-8").splitlines(), 1):
         for match in links.finditer(line):
             target, separator, fragment = match.group(1).partition("#")

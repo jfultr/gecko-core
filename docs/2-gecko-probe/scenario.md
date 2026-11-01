@@ -2,7 +2,7 @@
 
 [Gecko / Probe model](model.md) · [Mesh / App requirements](../1-mesh-app/lower-level-requirements.md) · [Development cycle](../development-cycle.md)
 
-**Status:** an end-to-end scenario for developing 1.0.0 D2 contracts. The execution flow illustrates rules from [Mesh / App, §2.2–2.3 and §8.2](../1-mesh-app/model.md) and [Gecko / Probe, §3](model.md). The domain cases below record the agreed direction for limited 1.0.0 reconnaissance and independent manual configuration; their implications for the model remain to be reconciled separately. Check names are illustrative.
+**Status:** an end-to-end scenario for developing 1.0.0 D2 contracts. The execution flow illustrates the [Operation contract](../../docs-modules/operation/spec/model.md), requirements from [Mesh / App, §2.2–2.3](../1-mesh-app/model.md), and domain rules from [Gecko / Probe, §3](model.md). The domain cases below record the agreed direction for limited 1.0.0 reconnaissance and independent manual configuration; their implications for the model remain to be reconciled separately. Check names are illustrative.
 
 ## Scenario Flow
 

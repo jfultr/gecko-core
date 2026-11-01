@@ -1,6 +1,6 @@
 # Gecko: Development Cycle Progress
 
-Version 0.7 · October 28, 2026
+Version 0.8 · November 1, 2026
 
 [Cycle and concepts](0-concepts/index.md#12-development-cycle) · [Mesh / App](1-mesh-app/model.md) · [Foundational modules](core-modules.md)
 
@@ -28,6 +28,8 @@ Document order establishes the initial investigation route rather than a strict 
 
 For each step, retain links to document changes, an experiment or code, the observed result, and limitations. A decision on paper does not imply implementation validation. If an experiment disproves an assumption, correct affected contracts and requirements, record the return in progress, and continue the pass; do not preserve an unsupported promise for the sake of the earlier plan.
 
+Foundational module design and common contracts are owned by each module documentation center. Mesh / App records consumer requirements; its R1–R8 questions concern integration and domain choices, while module design questions belong to the module decision register.
+
 Foundational modules with independent contracts are listed in the [catalog](core-modules.md), with dependencies and work status. Their separate design and prototyping may precede completion of the domain downward pass if the module boundary is accepted; integration checks remain part of the corresponding upward steps. Operation is the first accepted module. This parallel work does not itself change D2–D4 or U4–U1 status.
 
 ## 2. Remaining Decisions Needed to Make 1.0.0 Specific Enough to Implement
@@ -39,8 +41,8 @@ Foundational modules with independent contracts are listed in the [catalog](core
 | R1 | Minimum App schema, revision, and supported operations | Consistent local App composition description, versions, and API | Awaiting the upward pass |
 | R2 | Concrete end-to-end scenario capabilities: Points, connections, Blocks, inputs, and result | A validated minimum set and its limitations | Awaiting the upward pass |
 | R3 | Rules for changing, stopping, deleting, and cleaning up a local App | Domain transitions, resource ownership, and safe explicit actions | Awaiting the upward pass |
-| R4 | Request, report, and identifier formats and API addressing | Typed contracts consistent with lower layers | Awaiting the upward pass |
-| R5 | Storage of revisions, execution permissions, request records, and latest reports | Validated persistence, publication, and recovery mechanisms and retention policy | Awaiting the upward pass |
+| R4 | App-specific request/report profiles, domain identifiers, and API addressing | Domain contracts using the Operation module API and schemas | Awaiting the upward pass |
+| R5 | Storage of App revisions and execution permissions; integration with Operation accounting and report retention | Validated App persistence and publication, consumer retention requirements, and safe accounting-release integration | Awaiting the upward pass |
 | R6 | Readiness conditions, timeouts, and post-restart behavior | Validated admission, waiting, and recovery conditions for local operations | Awaiting the upward pass |
 | R7 | Minimum Zenoh profile and validation of its guarantees | Selected SDKs, keys, settings, and confirmed exchange guarantees | Awaiting the upward pass |
 | R8 | Acceptance criteria for the complete local cycle | A reproducible scenario, failure checks, and feature delivery latency evaluation | Awaiting the upward pass |
@@ -92,6 +94,7 @@ Earlier diagnostic-task references use the current Probe term; these tasks were 
 
 | Date | Step | Change and evidence | Next action |
 |---|---|---|---|
+| 2026-11-01 | Operation documentation ownership | Common design and recent lifecycle decisions are centralized in the [module contract](../docs-modules/operation/spec/model.md); Mesh / App retains consumer requirements and domain integration. Earlier log entries preserve historical locations. No implementation or experiments | Resolve the minimum prototype decisions in the module [register](../docs-modules/operation/spec/status.md) |
 | 2026-10-23 | D0–D1 | The [concepts](0-concepts/index.md) describe the goal and cycle. [Mesh / App 0.43](1-mesh-app/model.md) is split into local 1.0.0, distributed 2.0.0, and dynamic 3.0.0; persistent Observer belongs to 3.0.0. Model documentation, without experiments or implementation | Continue down to Gecko / Probe; retain R1–R8 until U1 |
 | 2026-10-25 | D2 preparation | Work order and active document format recorded in §3; the [Mesh / App model](1-mesh-app/model.md), [requirements down](1-mesh-app/lower-level-requirements.md), and [history](1-mesh-app/history.md) are already separate | Apply the format to Gecko / Probe and continue downward |
 | 2026-10-27 | D2 | The [Gecko / Probe scenario](2-gecko-probe/scenario.md) is selected: preliminary Probe chains, partial facts, a late client connection, and an addressed check. [Mesh / App §2.3](1-mesh-app/model.md#23-discovery-and-probe-work) and [Gecko / Probe §3.4](2-gecko-probe/model.md#34-preliminary-probes-and-check-chains) are refined: current Probe work state does not signal discovery completeness. Recorded in documents, without an experiment | Define domain contracts for Gecko state and Probe runs for this scenario |
@@ -99,7 +102,7 @@ Earlier diagnostic-task references use the current Probe term; these tasks were 
 | 2026-10-27 | D2: parts of B1, B2, C3, and D2 | [Gecko / Probe model 0.11](2-gecko-probe/model.md#34-preliminary-probes-and-check-chains) accepts shared rules for preliminary and client runs; a scenario variant adds cancellation and an additional chain. The [plan](2-gecko-probe/work-plan.md#41-accepted-parts-of-decisions) distinguishes accepted parts from open questions; reasons are retained in [history](2-gecko-probe/history.md). Model decision without an experiment | Continue A1–A3; refine tree cancellation, contention, and partial results in B–D; validate the shared interface at U2 |
 | 2026-10-28 | D2: parts of A3 and B1 | [Gecko / Probe model 0.12](2-gecko-probe/model.md#34-preliminary-probes-and-check-chains) accepts: Probe publishes findings; Gecko's reconnaissance policy selects and starts subsequent checks under applicability rules. The [plan](2-gecko-probe/work-plan.md#41-accepted-parts-of-decisions) and [history](2-gecko-probe/history.md#2026-10-28-gecko-policy-selects-subsequent-checks) reflect responsibility boundaries, three considered approaches, and open details. Model decision without an experiment | Refine applicability condition form and run relationships; validate starting a subsequent check from a partial finding at U2 |
 | 2026-10-28 | Cycle rules | §3.3 requires a progress table at the start of each level plan: all items, statuses, accepted parts and remaining questions, updated with decisions. Applied in the [Gecko / Probe plan](2-gecko-probe/work-plan.md#d2-progress) | Maintain tables as decisions proceed and apply the rule to subsequent levels |
-| 2026-10-28 | Operation foundational module | A [foundational module catalog](core-modules.md) is created; Operation is defined as an independent in-project implementation with ROS 2 Actions and Google LRO as references. Active rules remain in [Mesh / App §8.2](1-mesh-app/model.md#82-operation-report-core). Separate development is allowed before D2 completion; implementation and experiments have not started | Prepare a module contract and prototype with a test executor; validate integration on the upward pass |
+| 2026-10-28 | Operation foundational module | A [foundational module catalog](core-modules.md) is created; Operation is defined as an independent in-project implementation with ROS 2 Actions and Google LRO as references. Active rules remain in [Mesh / App §8.2](1-mesh-app/model.md#82-requirements-on-operation-and-app-specific-use). Separate development is allowed before D2 completion; implementation and experiments have not started | Prepare a module contract and prototype with a test executor; validate integration on the upward pass |
 | 2026-10-28 | D2: A1 terminology | [Gecko / Probe model 0.14](2-gecko-probe/model.md#21-capability-and-probe) separates Probe tasks, Probe runs through Operation, and advertised environment Capabilities. Definitions, examples, diagrams, related documents, directory paths, and links are reconciled; [history](2-gecko-probe/history.md#2026-10-28-axis-split-into-probe-and-capability) records the former Axis name. A1 is accepted at the model level without implementation or experiments | Continue A2–A3; refine Capability identifiers, evidence, freshness, and publication in A2, C1–C2, and D1 |
 
 The earlier [temporary Mesh / App plan](1-mesh-app/archive/work-plan.md) and [revision 0.42 review](1-mesh-app/archive/review-2026-10-22.md) reflect the preceding discussion stage. Their statuses do not imply completion of the current cycle or readiness to implement 1.0.0.

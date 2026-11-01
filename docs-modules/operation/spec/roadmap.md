@@ -4,6 +4,8 @@ October 28, 2026 · **preliminary example, not an approved plan**
 
 [Overview](../README.md) · [Model](model.md) · [Decision status](status.md) · [Security](security.md)
 
+The common contract is already owned by [Operation model](model.md). Version numbers below refer to Operation releases, not the product Gecko 1.0.0 target.
+
 This document illustrates a possible order for reducing risk and producing verifiable results. Version numbers, boundaries, and the number of intermediate releases will be revised after the state machine and first prototype are designed. A version represents a result only when the corresponding implementation and tests exist, not when its description is written.
 
 | Version | Possible objective | Example verifiable result |
@@ -36,4 +38,4 @@ Before the first stable release, the project must at least:
 - have at least two domain-distinct integrations, or explicitly justify why one is sufficient;
 - complete the [security gate](security.md#security-gate-for-100);
 - provide operational guidance for storage, upgrades, backup, and diagnostics;
-- move the source of truth for the common contract into the versioned module specification.
+- publish the validated module contract and its compatibility guarantees from this documentation center.

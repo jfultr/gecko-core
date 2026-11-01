@@ -13,8 +13,8 @@ English is the single documentation language. Documents use filenames without a 
 | Line / Point / Edge / View | [Model](4-line-point-edge-view/model.md) | — |
 | Foundational modules | [Catalog](core-modules.md) | [Operation module](../docs-modules/operation/README.md) |
 
-Each topic's `model.md` contains its active rules and questions. Requirements, history, and working materials are separate from the model. Historical decisions do not override active rules. The root [development-cycle.md](development-cycle.md) describes work order and progress rather than a domain contract.
+Each topic's `model.md` contains its active rules. Operation owns its common contract in `docs-modules/operation/spec/model.md` and centralizes decisions and open questions in `spec/status.md`; consumer documents supply requirements and domain behavior. Requirements, history, and working materials are separate from the model. Historical decisions do not override active rules. The root [development-cycle.md](development-cycle.md) describes work order and progress rather than a domain contract.
 
 The [temporary Mesh / App plan](1-mesh-app/archive/work-plan.md) and [October 22, 2026 review](1-mesh-app/archive/review-2026-10-22.md) are historical materials from an earlier stage. Their status does not imply completion of the current cycle.
 
-To validate local Markdown links and section anchors, run `python3 docs/check_links.py` from the repository root.
+To validate local Markdown links and section anchors in both `docs/` and `docs-modules/`, run `python3 docs/check_links.py` from the repository root.

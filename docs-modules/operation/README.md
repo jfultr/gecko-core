@@ -8,13 +8,15 @@ Current version: [`0.1.0-dev`](VERSION). Implementation has not started yet; thi
 
 ## Contents
 
-- [Model and boundaries](spec/model.md) — purpose, responsibilities, and intended module structure.
+- [Model and boundaries](spec/model.md) — the authoritative common contract, responsibilities, lifecycle, reports, accounting, and validation.
 - [Decision status](spec/status.md) — accepted decisions, open questions, and links to their original context.
 - [Example roadmap](spec/roadmap.md) — a preliminary outline from `0.1.0` to `1.0.0`; the versions and their scope are not approved yet.
 - [Security](spec/security.md) — required areas of security work and the admission gate for `1.0.0`.
 
-## Source-of-truth status
+## Documentation ownership
 
-Until the contract is migrated and reconciled, the active common Operation rules remain in [Mesh / App §8](../../docs/1-mesh-app/model.md#8-operation-protocol), primarily [§8.2](../../docs/1-mesh-app/model.md#82-operation-report-core). The files in this module define its boundary, collect its context, and prepare a standalone specification. If they conflict, Mesh / App §8.2 takes precedence.
+[Model and contract](spec/model.md) owns Operation design and accepted common rules. [Security](spec/security.md) owns security requirements. [Decision status](spec/status.md) is the single register of accepted decisions, their provenance, and open questions, including ST1–ST5. The roadmap remains a preliminary release outline.
 
-Moving the source of truth must be an explicit decision. After that move, domain documents will reference the versioned module contract and retain only their Probe- or App-specific extensions.
+Mesh / App and Gecko / Probe are consumers. They define requirements and domain-specific behavior, and use the module contract through references. Their documents do not override Operation design. A mismatch between a consumer requirement and module guarantees must be recorded and resolved explicitly.
+
+On November 1, 2026, the common contract was migrated here from Mesh / App §8.2. Historical references to its former location are provenance, not active authority. Product Gecko 1.0.0 requirements and the unreleased Operation version `0.1.0-dev` are distinct; migration does not approve release scope or claim implementation.

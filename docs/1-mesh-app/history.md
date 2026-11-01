@@ -6,6 +6,28 @@ The entries below preserve discussion history, including superseded decisions an
 
 Earlier diagnostic-task references are normalized to Probe, the term adopted on October 28, 2026; they were called Axis / Axes when those decisions were made. This terminology update does not change the dates or scope of earlier decisions.
 
+### From Version 0.51 to 0.52
+
+November 1, 2026. Common Operation design moves to the [module contract](../../docs-modules/operation/spec/model.md). Mesh / App retains consumer requirements, App retention/deletion, readiness/application profiles, Coordinator duties, and integration criteria. Common API, state, report, recovery, and adapter questions are owned by the module [decision register](../../docs-modules/operation/spec/status.md). The four recent decisions below are preserved, not reopened. Product and module versions are distinct; no implementation or new lifecycle state is approved.
+
+Entries below refer to the location and revision in which a decision was recorded. References to former §8.2 describe history; the current section contains consumer requirements and links to the module contract.
+
+### From Version 0.50 to 0.51
+
+November 1, 2026. §8.2 accepts idempotent repeated Cancel semantics: a repeat returns the current status of the already requested cancellation without a new stop attempt. For a terminal operation, Cancel returns the actual outcome without changing it or issuing another stop attempt. Responses may reflect newer information rather than replaying the original response. Response schemas, concurrent deduplication, cancellation accounting persistence, and explicit reconsideration after rejection remain open. No implementation or experimental validation is claimed.
+
+### From Version 0.49 to 0.50
+
+November 1, 2026. §8.2 assigns lifecycle validation, state recording, and snapshot numbering to Operation Core. Domain executors submit progress and outcomes through the Executor API and retain responsibility for domain facts. This replaces executor-owned numbering, including Coordinator summary numbering; Core persists snapshots and counters through the Storage API. `reported_at` denotes snapshot generation at Core. This establishes one logical authority per operation without choosing processes or a concurrency mechanism. Competing-notification arbitration, API details, and implementation validation remain open.
+
+### From Version 0.48 to 0.49
+
+November 1, 2026. §8.2 clarifies cancellation racing with completion: accepted cancellation does not reserve the terminal outcome. Actual successful or unsuccessful completion before cancellation takes effect remains `succeeded` or `failed`; `cancelled` requires confirmed cessation as a result of cancellation. Late cancellation responses cannot overwrite confirmed outcomes. Atomic arbitration of competing executor notifications, cancellation response formats, and validation remain open. This is a model decision without implementation or experiments.
+
+### From Version 0.47 to 0.48
+
+October 31, 2026. §8.2 accepts `unknown` as nonterminal uncertainty about the same execution. Reliable later confirmation may establish `running`, `succeeded`, `failed`, or `cancelled` without changing identity or starting or resuming work. Confirmed terminal outcomes are immutable, timeouts alone do not establish failure or cancellation, and state clarification preserves partial results and advances snapshot numbering. This permits late confirmation without unsafe repetition. The full state machine, evidence validation, and cancellation/completion races remain open; no implementation or experiment is claimed.
+
 ### From Version 0.46 to 0.47
 
 October 28, 2026. The former Axis term is split into Probe for a diagnostic task and Capability for an environment execution possibility. §2 distinguishes their declarations and the facts obtained by Probe runs; detailed contracts remain in Gecko / Probe. Links and operation examples use the new vocabulary. The run-relationship example follows the already accepted rule that Gecko policy initiates subsequent checks and Probes do not invoke each other directly. Operation mechanics and implementation version boundaries are unchanged.

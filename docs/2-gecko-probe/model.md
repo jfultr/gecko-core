@@ -1,6 +1,6 @@
 # Gecko and Probe
 
-Version 0.15 · October 31, 2026
+Version 0.16 · November 1, 2026
 
 [Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.md) · [Scenario](scenario.md) · [D2 plan](work-plan.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.md) · [Block / Anchor](../3-block-anchor/model.md)
 
@@ -72,7 +72,7 @@ A Probe invocation can produce more than retained facts. Possible results in the
 
 These result types can coexist: discovering a blocker does not make data already obtained useless. Result schemas and rules for representing partially completed work remain open.
 
-**Operation Report: a Probe run.** Invocation, intermediate messages, and the final outcome use the common [operation protocol](../1-mesh-app/model.md#82-operation-report-core) core. A report is associated with a particular Probe run, rather than just a check type. This is a working form of message content; exact structures and keys are refined separately.
+**Operation Report: a Probe run.** Invocation, intermediate messages, and the final outcome use the common [Operation contract](../../docs-modules/operation/spec/model.md) core. A report is associated with a particular Probe run, rather than just a check type. This is a working form of message content; exact structures and keys are refined separately.
 
 Common execution mechanics belong to the [Operation foundational module](../core-modules.md#core-op-boundary-and-work). Probe defines the check's subject, results, constraints, and blockers; Gecko's reconnaissance policy selects subsequent checks. The common core does not depend on these domain rules.
 
@@ -81,7 +81,7 @@ Common execution mechanics belong to the [Operation foundational module](../core
 | `operation`, `subject` | Run identity, Gecko and Probe, and check subject: a Device, environment, implementation, or another supported subject |
 | `sequence`, `reported_at` | Number of this run's full snapshot and its generation time; an older or duplicate snapshot does not replace a newer one; order follows the number rather than clocks on different Gecko instances |
 | `context` | Parameters, inputs, run conditions, and relationships to dependencies used; App and revision only when related |
-| `state`, `progress` | `running`, `succeeded`, `failed`, `cancelled`, or `unknown` under the common protocol (Mesh / App §8.2), the current stage and available progress; a blocker preventing continuation without an external fix ends the attempt with `failed` rather than leaving it waiting to resume |
+| `state`, `progress` | `running`, `succeeded`, `failed`, `cancelled`, or `unknown` under the [module lifecycle](../../docs-modules/operation/spec/model.md#7-lifecycle-and-cancellation), the current stage and available progress; a blocker preventing continuation without an external fix ends the attempt with `failed` rather than leaving it waiting to resume |
 | `result` | Discovered facts and measurements as they appear, then the final outcome; a discovered Device is visible before the whole run finishes |
 | `acquired_resources` | Resources actually acquired or created if the task performed such preparation; ordinary discovery need not acquire anything |
 | `blockers`, `limitations` | A missing driver or access, unavailable dependency, incomplete facts, and limitations of test applicability |
@@ -91,7 +91,7 @@ Common execution mechanics belong to the [Operation foundational module](../core
 | `children` | Relationships to child Probe runs, where the domain contract defines them; Gecko policy initiates subsequent checks rather than Probes invoking each other; provisionally the tree belongs to one Gecko |
 | `details` | Domain characteristics and data of the particular Probe; a readiness assessment is added only if the task actually provides one under its contract |
 
-Every Probe run message is a full snapshot of the available Operation Report state, rather than only newly discovered data. Subsequent snapshots retain results already obtained and reflect current blockers, progress, and the final outcome; artifact references do not require copying artifact contents. This rule does not define latest-value storage or history in Zenoh.
+Probe uses the module's [full snapshot contract](../../docs-modules/operation/spec/model.md#6-snapshots-and-core-authority). Its domain content includes findings already obtained, current blockers, and artifact references; the Probe profile does not define snapshot numbering or Zenoh retention mechanisms.
 
 Identity and context are available at execution start. Progress, discovered data, and possible blockers appear during work; the final report exposes the actual result, including partial results. Not every run must have progress percentages, child tasks, or resources. A standalone Probe need not have an `application` or App decision. Run completion does not automatically mean a successful check or readiness of an arbitrary composition.
 
@@ -99,7 +99,7 @@ Identity and context are available at execution start. Progress, discovered data
 
 The AI agent interface is a substantial part of the Probe model. Gecko can detect a problem without necessarily having the means to fix it. A Probe must give the agent understandable context: the discovered condition, its impact, facts obtained, and instructions for further action. A successful report is also useful as context and a basis for subsequent decisions.
 
-For example, a Probe discovers a missing required NVIDIA driver and returns a blocker with diagnostics and installation instructions. An agent has a broader set of tools for interacting with the OS and user and can use these instructions to fix the problem. This does not require the Probe itself to install the driver. After an external fix, the user or agent explicitly runs the check again: a new run with a new identity, rather than resuming the previous one. The current run ends with the blocker and obtained data; it does not automatically wait for a fix and continue. The agent's specific authority remains open. The common operation rule is defined in Mesh / App, §8.2.
+For example, a Probe discovers a missing required NVIDIA driver and returns a blocker with diagnostics and installation instructions. An agent has a broader set of tools for interacting with the OS and user and can use these instructions to fix the problem. This does not require the Probe itself to install the driver. After an external fix, the user or agent explicitly runs the check again: a new run with a new identity, rather than resuming the previous one. The current run ends with the blocker and obtained data; it does not automatically wait for a fix and continue. The agent's specific authority remains open. The common rule is defined in the [module lifecycle](../../docs-modules/operation/spec/model.md#7-lifecycle-and-cancellation).
 
 ### 3.4. Preliminary Probes and Check Chains
 
@@ -139,7 +139,7 @@ The preliminary model does not itself approve the Mesh / App contract or establi
 
 At the Mesh level before Build, each Gecko can be addressed directly to request individual checks through its Zenoh API (edge communication). A Probe must appear explicitly in this API as a separately addressable entity. Addressing a check preserves its association with a particular Gecko and Probe; it cannot be reduced to an anonymous check operation on Gecko itself.
 
-**Accepted:** a Probe and an individual Probe run are distinct. Each run has its own identity in the context of a particular Gecko and Probe. A newly accepted request creates a distinguishable run. Parameters, state, progress, results, artifacts, and blockers belong to the corresponding run. Retrying the same request with the previous `request_id` returns the previous operation without new execution (Mesh / App, §8.2). This decision does not determine whether several runs can execute concurrently.
+**Accepted:** a Probe and an individual Probe run are distinct. Each run has its own identity in the context of a particular Gecko and Probe. A newly accepted request creates a distinguishable run. Parameters, state, progress, results, artifacts, and blockers belong to the corresponding run. Retrying the same request with the previous `request_id` returns the previous operation without new execution under the [module identity contract](../../docs-modules/operation/spec/model.md#4-requests-identity-and-public-api). This decision does not determine whether several runs can execute concurrently.
 
 | Addressing level | Meaning |
 |---|---|
@@ -184,6 +184,10 @@ The broader Probe model permits diagnostics and measurements beyond this limited
 
 ## 4. Vocabulary Changes
 
+### From Version 0.15 to 0.16
+
+Operation's common design is owned by its module documentation. Active references now use that contract; Mesh / App continues to supply consumer requirements. Probe profiles, policy, and fact semantics remain domain responsibilities. Earlier entries below preserve historical contract locations and do not assign current ownership.
+
 ### From Version 0.14 to 0.15
 
 Limited reconnaissance is included in 1.0.0: basic machine information, GPU/NPU discovery, DeepStream/OpenVINO support checks, and camera discovery including RTSP scenarios. Points and Blocks can be created and configured manually regardless of reconnaissance results; findings simplify configuration. Execution requirements remain separate, with validation and launch policy still open.
@@ -194,7 +198,7 @@ The former **Axis / Axes** vocabulary is split by responsibility: diagnostic tas
 
 ### From Version 0.12 to 0.13
 
-Common Operation mechanics are separated into an [independent foundational module](../core-modules.md) used by Probe runs and App operations. The active common contract remains in [Mesh / App §8.2](../1-mesh-app/model.md#82-operation-report-core).
+At that revision, common Operation mechanics were separated into an [independent foundational module](../core-modules.md) used by Probe runs and App operations, with the text still located in Mesh / App §8.2. Since November 1, 2026, the active contract is owned by [Operation](../../docs-modules/operation/spec/model.md).
 
 ### From Version 0.11 to 0.12
 

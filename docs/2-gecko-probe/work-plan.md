@@ -44,6 +44,8 @@ Develop the entire layer in terms of responsibilities and relationships. For the
 
 At this pass, evidence consists of scenario and contract consistency. Performance, transport guarantees, and recovery guarantees are validated by experiments after descending. Each significant assumption receives a validation method and return step. Language, SDK, storage, exact keys, numeric limits, and the full message set need selection now only if they change an architectural boundary.
 
+Common lifecycle, API, and accounting design questions are owned by the [Operation register](../../docs-modules/operation/spec/status.md). B2, B4, C4, and D2–D3 here refine Probe use of that contract, domain facts/resources, and integration requirements; they do not maintain a second common design.
+
 This file defines work order. Active rules reside in the model and domain contracts. A question or alternative in the plan does not itself become an accepted decision.
 
 ## 2. Basis and Scenarios
@@ -115,7 +117,7 @@ A–F denote architectural development branches. They define work and possible d
 | D2 | How request, acceptance, run identity, report reading, observation, and cancellation relate | A domain profile of the common operation protocol, including `request_id` conflict and unavailable reports |
 | D3 | How a client obtains current state and continues observation on late connection and reconnection | Requirements for read/subscription reconciliation, snapshot order, and gap disclosure |
 
-**Dependency:** A, B, C. **Done when:** client actions and the meaning of each response can be described without selecting concrete Zenoh keys. Use the Mesh / App Operation Report core; transport guarantees are passed to U2/U1 for validation.
+**Dependency:** A, B, C. **Done when:** client actions and the meaning of each response can be described without selecting concrete Zenoh keys. Use the [Operation module contract](../../docs-modules/operation/spec/model.md); transport guarantees are passed to U2/U1 for validation.
 
 ### E. Domain Checks and Lower-Level Boundaries
 

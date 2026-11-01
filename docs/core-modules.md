@@ -1,6 +1,6 @@
 # Gecko Foundational Modules
 
-October 28, 2026 · dependency and work catalog for foundational modules
+November 1, 2026 · dependency and work catalog for foundational modules
 
 [Documentation](README.md) · [Development cycle](development-cycle.md) · [Mesh / App](1-mesh-app/model.md) · [Gecko / Probe](2-gecko-probe/model.md)
 
@@ -8,7 +8,7 @@ This catalog lists modules with their own contracts used by several domain areas
 
 | ID | Module | Responsibility and active contract | Dependencies on other foundational modules | Consumers | Status and next outcome |
 |---|---|---|---|---|---|
-| CORE-OP | **Operation** | Request acceptance, execution identity, reports and progress, safe retries, cancellation, preservation of operation records, and resuming observation. [Common core and 1.0.0 rules](1-mesh-app/model.md#82-operation-report-core) | No agreed dependencies | Gecko runtime; [Probe](2-gecko-probe/model.md#32-data-blockers-and-reports) runs; App operations | Boundary accepted at the model level; implementation has not started. Next outcome: a separate module contract and a verifiable prototype with a test executor |
+| CORE-OP | **Operation** | Request acceptance, execution identity, reports and progress, safe retries, cancellation, preservation of operation records, and resuming observation. [Module contract](../docs-modules/operation/spec/model.md) | No agreed dependencies | Gecko runtime; [Probe](2-gecko-probe/model.md#32-data-blockers-and-reports) runs; App operations | Boundary accepted at the model level; implementation has not started. Module contract centralized; next outcome: resolve minimum prototype decisions and validate a test executor |
 
 Dependencies point **from the consumer to the foundational module**: Probe and App operations use Operation; Operation does not depend on their domain entities. Gecko supplies the execution environment and storage and transport adapters. Defining the module does not select a language, package structure, storage system, or Zenoh keys.
 
@@ -18,7 +18,7 @@ Dependencies point **from the consumer to the foundational module**: Probe and A
 
 The module provides a common execution lifecycle and access to reports. Domain executors define inputs, results, blockers, and actual actions. The reconnaissance policy decides which Probe to run; the Planner and App participants determine preparation, readiness, and application of decisions. Operation does not make these domain judgments or start the next check itself.
 
-The active rules currently reside in [Mesh / App §8.2](1-mesh-app/model.md#82-operation-report-core). When designing a separate module contract, the common semantics can be moved out of that section, leaving only domain additions in Mesh / App and Gecko / Probe. Until that migration, this catalog and the future module contract must not define a second, divergent set of rules.
+Operation owns its [common contract](../docs-modules/operation/spec/model.md) and [decision register](../docs-modules/operation/spec/status.md). Mesh / App and Gecko / Probe supply consumer requirements and domain integrations. Their documents reference the module instead of defining its internal design. The ownership correction was recorded on November 1, 2026.
 
 Work on the module can begin independently of completing D2: refine interface boundaries, then verify a prototype with a test executor. Minimum validation must cover acceptance and rejection, a lost response and retry with the same `request_id`, a new request, progress and results, cancellation request and confirmation, restart with preserved operation records, and an explicitly unknown outcome. Integration with Probe, App, Zenoh, and domain storage is validated as their contracts become available. Separate CORE-OP work does not declare the entire upward pass of the [cycle](development-cycle.md) complete.
 
