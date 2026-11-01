@@ -59,6 +59,23 @@ Accepted rules live in the module contract. This register owns all open Operatio
 
 ST1–ST5 refine the areas above rather than add a second backlog. Safe consumer-driven accounting release is also open: the deletion of an App must not become knowledge required by Core.
 
+### 2.2. Minimum decisions before the first prototype
+
+The following six packages are the agreed checklist for deciding when to begin writing the first prototype. They identify the decisions needed for that experiment; they do not approve the answers, a release scope, or implementation readiness. Each package is complete for this purpose when its stated criterion is accepted at the model level. Record its accepted rule in [model](model.md) or [security](security.md), and update this register. Implementation and experimental validation are tracked separately.
+
+| ID | Package | Status and accepted basis | Remaining decision and sufficient outcome before code |
+|---|---|---|---|
+| P1 | Prototype boundary and stack | Open. An in-process prototype with in-memory storage and a test executor is permitted; the example [roadmap](roadmap.md) is not an approved plan. | Select the experiment's observable scenario, included commands and failure cases, language and execution environment, and explicit limitations. State how its result will be evaluated. |
+| P2 | State machine | Partially accepted: `unknown`, terminal outcomes, Core authority, and cancellation/completion semantics are established in [lifecycle](model.md#7-lifecycle-and-cancellation). | For the P1 scope, define the initial state and the transitions and evidence needed for its scenario, including uncertainty and relevant cancellation races. Identify which ST1–ST3 questions the experiment leaves open or will investigate. |
+| P3 | Public API | Partially accepted: Start/Get/Observe/Cancel have common meanings in [the contract](model.md#4-requests-identity-and-public-api). | Define the inputs, responses, and errors for each command included in P1, including accepted/rejected Start and unavailable reports. State explicitly how commands outside the experiment are deferred, without changing the target contract. |
+| P4 | Identity and retry | Partially accepted: client `request_id`, receiver `operation.id`, retry and changed-content conflict semantics are established. | Choose identifier representation and uniqueness scope, request-content comparison, and concurrent retry behavior sufficient to exercise the P1 scenario; retain open security and cross-restart questions for later validation. |
+| P5 | Executor contract | Partially accepted: the executor supplies facts; Core validates transitions and numbers snapshots. | Define handoff, acknowledgement, progress and outcome notifications, errors, and the cancellation interaction if included in P1. Specify how the prototype treats relevant duplicate or competing notifications; link unresolved ST2–ST4 details to later work. |
+| P6 | Accounting and trust | Partially accepted: accepted-request accounting precedes domain side effects, and the first API carries trusted caller context and an authorization point. | Define the prototype's accounting boundary and storage interface, including how acceptance and deduplication are recorded before handoff, and trusted caller context, authorization, and audit integration. An in-memory implementation and test policy are possible if their limitations, including lack of restart durability, are explicit. Identify which ST4–ST5 recovery and persistence cases require a later implementation. |
+
+The six packages map to the existing areas and ST1–ST5; they do not create a second set of accepted rules. A decision may settle only the portion required by P1 and leave the rest open with a validation step. In particular, choosing in-memory storage for an experiment does not satisfy or waive the target contract's durable retry and normal-restart guarantees. A permissive test policy does not establish production security; trusted context, authorization, and audit responsibilities remain governed by [security](security.md).
+
+Before implementation starts, all six prototype criteria must be accepted and P1 must specify the checks that will distinguish observed results from assumptions. The accepted checklist itself does not determine whether Observe or Cancel is in the first experiment; their common contract remains in force, and the P1 decision must say what is included. Broader release, integration, persistence, and security gates remain open independently.
+
 ## 3. Current status
 
 - The module boundary is accepted.
@@ -72,4 +89,4 @@ ST1–ST5 refine the areas above rather than add a second backlog. Safe consumer
 - The exact release breakdown is not approved.
 - November 1, 2026: common design migrated from Mesh / App into Operation; consumer requirements remain in domain documents. Historical links above record provenance, not contract authority.
 
-The next substantive result is to approve a minimum state machine and transport-neutral API, then validate them with an in-memory prototype, a test executor, and fault and concurrency tests.
+The next substantive result is to resolve the six [minimum prototype decision packages](#22-minimum-decisions-before-the-first-prototype), then implement and evaluate the selected experiment. The checklist is accepted; its package-level answers remain open or partially accepted as shown.
