@@ -1,5 +1,7 @@
 # Gecko Documentation
 
+[Agent working instructions and explicit roles](../AGENTS.md) describe repository workflows, Linear handoffs, and reusable tools. No role is active by default.
+
 Start with the [goal and concepts](0-concepts/index.md). The [development cycle](development-cycle.md) records the current work route and return questions for the upward pass. The [module catalog](core-modules.md) lists accepted foundational modules and their dependencies.
 
 English is the single documentation language. Documents use filenames without a language suffix; update related pages together when a rule or contract changes.
