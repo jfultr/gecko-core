@@ -1,12 +1,12 @@
 # Operation: model and contract
 
-Specification draft 0.6 · module `0.1.0-dev` · November 1, 2026
+Specification draft 0.7 · module `0.1.0-dev` · November 1, 2026
 
-[Overview](../README.md) · [Decision status](status.md) · [Example roadmap](roadmap.md) · [Security](security.md)
+[Overview](../README.md) · [Decision status](status.md) · [Working roadmap](roadmap.md) · [Security](security.md)
 
 This document owns the common Operation design and accepted contract. [Security](security.md) owns its security requirements; [decision status](status.md) is the single register of decisions and open questions. Consumer documents specify their requirements and domain behavior, and reference this contract.
 
-The accepted rules below are model-level decisions, not implementation evidence. The current target is integration into local Gecko 1.0.0. That product target does not assign these guarantees to an approved Operation release: the module remains `0.1.0-dev`, and its [release roadmap](roadmap.md) is preliminary. Prototype limitations must be stated explicitly.
+The accepted rules below are model-level decisions, not implementation evidence. The current target is integration into local Gecko 1.0.0. That product target does not assign these guarantees to a completed Operation release: the module remains `0.1.0-dev`. The first-experiment scope and release order are agreed as a working plan in [the roadmap](roadmap.md); prototype limitations must be stated explicitly.
 
 ## 1. Purpose
 
@@ -66,6 +66,25 @@ These are logical boundaries, not an approved process or package layout.
 
 The first prototype may run in one process and use in-memory storage if those limitations are explicit and the interfaces do not bind Core to a specific transport.
 
+### 3.1. Agreed first experiment (`0.1.0`)
+
+The first experiment uses Rust on Ubuntu-24.04 in WSL, one Gecko, a test executor, and in-memory accounting. It exercises **Start, Get, and Observe through a minimal Zenoh adapter** as well as Core directly. Core remains transport-neutral. Cancel is the next-stage `0.2.0` result, not a `0.1.0` command implementation. The first Zenoh adapter is an experimental local path; its SDK version, keys, and delivery guarantees are selected and validated during implementation. The test deployment is restricted to trusted local participants until transport authentication and production authorization are validated.
+
+The observable scenario covers accepted and rejected Start, a lost Start response followed by same-content retry, a changed-content conflict, concurrent retries, progress and a terminal result, and uncertainty after lost executor acknowledgement without automatic redispatch. Observe must work for an already running or completed operation, after reconnection, and when attachment races with final publication. A slow observer or a missed intermediate snapshot must be detectable; full history is not promised. These checks distinguish demonstrated behavior from model assumptions.
+
+The prototype decisions for the six [pre-code packages](status.md#22-minimum-decisions-before-the-first-prototype) are:
+
+| Package | Accepted first-experiment rule |
+|---|---|
+| P1: boundary | Start, Get, Observe and the minimal Zenoh path above; in-process test executor and in-memory Storage implementation. No restart-durability claim for `0.1.0`. |
+| P2: states | Acceptance creates a visible `pending` snapshot before executor acknowledgement. Confirmed execution enters `running`; an ambiguous handoff or loss of reliable execution knowledge enters `unknown`. Terminal states require an authoritative outcome. No queue is introduced. |
+| P3: public API | Start takes a caller-supplied `request_id`, operation type, applicable target, and typed parameters, then returns accepted identity and observation address or a typed rejection. Get takes `operation.id` and returns the latest available full snapshot or explicit unavailability. Observe takes `operation.id` and an optional last known `sequence`, delivers the available current snapshot and subsequent snapshots, and indicates a gap when intermediate snapshots were missed. Unauthorized access and invalid input are distinct errors. Concrete serialization and transport keys are selected during implementation and conformance testing. |
+| P4: identity and retry | The experiment uses random UUIDv4 values for both identifiers. A retry key is scoped to the receiving Gecko and trusted caller subject. The operation type, applicable target, and normalized typed parameters are compared; tracing metadata is excluded. Concurrent same-content retries resolve to one accepted execution; changed content conflicts. The normalized representation and UUID implementation are verified in code. |
+| P5: executor | A single assigned test executor receives an execution token, acknowledges handoff separately, and sends identified, ordered progress and terminal notifications. Core validates and numbers accepted full snapshots. Duplicate notifications create no new snapshot; stale progress and conflicting terminal notifications are protocol errors. An ambiguous handoff is not retried automatically. Exact event schema and competing-notification handling are verified in the prototype. |
+| P6: accounting and trust | The request mapping, execution record, and first snapshot commit together in memory before handoff. If this commit fails, Start does not accept or dispatch work. The adapter supplies trusted caller context rather than taking identity from the request body; Core calls authorization and records its decision before handoff. A permissive test policy is allowed only in the restricted test deployment. Durable accounting, persisted audit, and recovery are `0.3.0` work. |
+
+For Observe, attaching a subscriber and reading the latest snapshot must reconcile atomically at Core so a final publication cannot be lost between the two. Reconnection uses `sequence` for deduplication and gap disclosure; it never restarts execution. The Zenoh adapter must demonstrate this behavior end to end rather than assuming transport history or cache supplies it. A gap does not imply loss of the latest available full snapshot. Concrete wire responses and unavailable-report behavior remain to be finalized in the first implementation contract.
+
 ## 4. Requests, identity, and public API
 
 **Accepted: operation request acceptance.** The receiving Gecko validates a request and responds with acceptance or rejection.
@@ -97,7 +116,7 @@ Acceptance or rejection describes request handling. Operation Report describes a
 
 A request and all progress and result messages of one execution share one `operation.id`. A new run after a fix receives a new identifier. A standalone operation has no parent. Each nested operation has its own identity; `parent_id` and `children` relate executions without implying ownership, dependency, cancellation propagation, or composite atomicity.
 
-The receiving runtime assigns the execution identifier on acceptance. Identifier format, uniqueness scope, canonical request comparison, and parent-reference transfer remain open. The established Gecko retry scope is the same receiving Gecko; its precise relationship to caller identity still requires a decision.
+The receiving runtime assigns the execution identifier on acceptance. For the first experiment, both identifiers are random UUIDv4 values; the retry key is scoped to the receiving Gecko and trusted caller subject, and request comparison uses the normalized operation type, applicable target, and typed parameters rather than tracing metadata. The precise canonical encoding, production security of this scope, and parent-reference transfer still require validation or later decisions.
 
 **Accepted: minimum Operation API.** Action meaning is defined independently of concrete Zenoh integration keys and mechanisms ([§9](#9-transport-adapter-investigation)).
 
@@ -123,7 +142,7 @@ A report belongs to a particular operation and participant. Several messages can
 | `reported_at` | Core-side snapshot generation time; used for diagnostics rather than replacing `sequence` for ordering |
 | `subject` | Participant and operation subject, including configuration or revision where applicable |
 | `context` | Inputs, parameters, dependencies, and App association if the operation relates to an App |
-| `state` | Execution state: `running`, `succeeded`, `failed`, `cancelled`, `unknown`; does not replace participant readiness or decision application results |
+| `state` | Execution state: `pending`, `running`, `succeeded`, `failed`, `cancelled`, `unknown`; does not replace participant readiness or decision application results |
 | `progress` | Object with `stage`, `message`, and optional numeric `completed`, `total`, `unit`; exposes the executor's available progress assessment |
 | `result` | Data actually obtained and actions performed, including partial results; domain content is defined in the relevant section |
 | `acquired_resources` | What preparation acquired, created, or reserved, including before failure; not an estimate of future consumption |
@@ -205,6 +224,7 @@ Each nested operation has its own `operation.id` and counter. The domain executo
 
 | `state` | Meaning |
 |---|---|
+| `pending` | Accepted and recorded, but executor acknowledgement has not established that execution began; this is not a queue claim |
 | `running` | The operation is executing |
 | `succeeded` | The operation completed successfully |
 | `failed` | The attempt is deemed unsuccessful, including due to a blocker requiring an external fix. The overall outcome of an actually composite operation does not replace actual part states |
@@ -213,8 +233,11 @@ Each nested operation has its own `operation.id` and counter. The domain executo
 
 **Accepted: uncertainty and later confirmation.** `unknown` is not a terminal outcome. It records the lack of reliable knowledge about the same execution; later confirmation may refine its state without changing `operation.id`.
 
+Acceptance first creates `pending` with the initial full snapshot. A confirmed handoff of the same execution changes it to `running`. If handoff may have reached the executor but its acknowledgement is lost, `pending` changes to `unknown` without another dispatch. A proven failure before any side effect can end as `failed` with an infrastructure explanation; an ambiguous handoff cannot be reported as proven failure. Later reliable evidence can refine `unknown` to the state of that same execution. Confirmation evidence and complete notification arbitration remain under ST2–ST3.
+
 | From / to | `running` | `unknown` | `succeeded` | `failed` | `cancelled` |
 |---|---|---|---|---|---|
+| `pending` | Confirmed handoff | Handoff may have occurred, but execution cannot be established | Confirmed completion, even if acknowledgement was lost | Confirmed failure, including proven failure before side effects | Confirmed cessation caused by cancellation after cancellation is supported |
 | `running` | Progress without a state change | Execution can no longer be reliably established | Confirmed success | Confirmed failure | Confirmed cessation as a result of cancellation |
 | `unknown` | Executor confirms the same execution continues | Uncertainty remains | Confirmed success | Confirmed failure | Confirmed cessation as a result of cancellation |
 | `succeeded` | Forbidden | Forbidden | State unchanged | Forbidden | Forbidden |
@@ -225,7 +248,7 @@ An unchanged state does not itself require a new snapshot. The rules for accepti
 
 These transitions refine knowledge and do not start or resume work. A timeout alone proves neither failure nor cancellation. `succeeded`, `failed`, and `cancelled` are immutable terminal outcomes. Partial results survive uncertainty; a new clarification uses a full snapshot with a greater `sequence`.
 
-No `blocked` state waiting for resumption is introduced for the local Gecko target. The initial state between acceptance and confirmed execution remains open: `pending` is a proposal, not an accepted state. The full lifecycle and notification arbitration remain incomplete; see [ST1–ST5](status.md#21-lifecycle-decisions).
+No `blocked` state waiting for resumption is introduced for the local Gecko target. `pending` is accepted as the initial state; the full lifecycle, cancellation races, and notification arbitration remain incomplete; see [ST1–ST5](status.md#21-lifecycle-decisions).
 
 Execution state is distinct from domain conclusions. A successfully performed check can report a negative or unknown domain answer. Nested operation outcomes are not replaced by an overall composite outcome.
 
@@ -275,7 +298,7 @@ Detailed report and artifact deletion and an explicit unavailable response are a
 
 ## 9. Transport adapter investigation
 
-Gecko selects Zenoh for integration. Core remains transport-neutral. The following mapping candidates and references are unvalidated investigation material, not selected SDK versions or proven guarantees.
+Gecko selects Zenoh for integration. The first `0.1.0` experiment includes a minimal adapter for Start, Get, and Observe; Core remains transport-neutral. The following mapping candidates and references are unvalidated investigation material, not selected SDK versions or proven guarantees. Their viability is tested in the first experiment, while the broader transport contract is stabilized later.
 
 | Local-version need | Integration candidate and validation subject |
 |---|---|

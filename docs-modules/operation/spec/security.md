@@ -2,13 +2,15 @@
 
 October 28, 2026 · required design track
 
-[Overview](../README.md) · [Model](model.md) · [Decision status](status.md) · [Example roadmap](roadmap.md)
+[Overview](../README.md) · [Model](model.md) · [Decision status](status.md) · [Working roadmap](roadmap.md)
 
 Operation is the common entry point for diagnostic and mutating Gecko actions. The module should therefore become the enforcement point where caller identification, command authorization, auditing, and load limits are applied consistently. This does not make it the only security boundary: each executor remains responsible for domain authorization, safe interaction with the operating system and hardware, and isolation of its own code.
 
 ## Design principle
 
 Security is not a final-release task. The first API must carry trusted caller context and expose an authorization point, even if the initial test policy permits every request. Public commands, identities, and storage must not be stabilized first and then retrofitted with subjects and permissions through a breaking redesign.
+
+The `0.1.0` experiment includes a minimal Zenoh adapter in a restricted local test deployment. Its caller context comes from the adapter's trusted test configuration, never from a client-declared identity field. A permissive test policy and in-memory decision records make no production authentication, persisted-audit, or untrusted-network security claim. Production transport identity, policy enforcement, and persisted audit are validated on the path to `1.0.0`, with a dedicated integration result planned for `0.5.0`.
 
 ## Required analysis areas
 
@@ -31,7 +33,7 @@ Security is not a final-release task. The first API must carry trusted caller co
 
 ## Responsibility split
 
-Core must invoke authorization consistently and persist the audit decision before handing work to an executor. A Transport adapter must construct trusted caller context from authenticated transport identity rather than an arbitrary request field. The Executor rechecks domain constraints and operates with the minimum required privileges.
+Core must invoke authorization consistently and record the audit decision before handing work to an executor; the record becomes durable with the persistent Storage implementation. A production Transport adapter must construct trusted caller context from authenticated transport identity rather than an arbitrary request field. The restricted `0.1.0` test adapter uses trusted local configuration as described above. The Executor rechecks domain constraints and operates with the minimum required privileges.
 
 Executor sandboxing and isolation, protection of domain-action secrets, and security of a specific Zenoh deployment are designed separately. Operation provides mandatory integration points and does not claim that these concerns are automatically resolved.
 

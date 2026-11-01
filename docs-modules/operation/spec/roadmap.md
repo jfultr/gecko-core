@@ -1,29 +1,34 @@
-# Operation: example roadmap to 1.0.0
+# Operation: working roadmap from 0.1.0 to 3.0.0
 
-October 28, 2026 · **preliminary example, not an approved plan**
+November 1, 2026 · **working release order accepted at the model level; no releases implemented**
 
 [Overview](../README.md) · [Model](model.md) · [Decision status](status.md) · [Security](security.md)
 
-The common contract is already owned by [Operation model](model.md). Version numbers below refer to Operation releases, not the product Gecko 1.0.0 target.
+The common contract is owned by [Operation model](model.md). Version numbers below refer to Operation releases, not the product Gecko version. `0.1.0` includes a minimal Zenoh adapter from the start, while Core retains a transport-neutral contract. The `0.1.0`–`0.3.0` sequence is agreed for the first experiments; later rows are directions to refine from observed results.
 
-This document illustrates a possible order for reducing risk and producing verifiable results. Version numbers, boundaries, and the number of intermediate releases will be revised after the state machine and first prototype are designed. A version represents a result only when the corresponding implementation and tests exist, not when its description is written.
+This roadmap orders verifiable results. A version represents a result only when the corresponding implementation and tests exist, not when its description is written. The later boundaries and number of intermediate releases may change after experiments.
 
-| Version | Possible objective | Example verifiable result |
+| Version | Objective | Verifiable result |
 |---|---|---|
-| `0.1.0` | First experiment | Rust on Ubuntu-24.04 in WSL; Start and Get with a test executor and in-memory accounting: acceptance and execution, safe retry, changed-content conflict, and uncertainty after a lost acknowledgement. Cancel and Observe are deferred to the next stage. |
-| `0.2.0` | Cancellation and observation | Cancel and Observe with observation after late attachment and reconnection, repeated cancellation, cancel/complete races, and partial results; initially tested in memory |
+| `0.1.0` | First end-to-end experiment | Rust on Ubuntu-24.04 in WSL; Start, Get, and **Observe over minimal Zenoh** with a test executor and in-memory accounting. Validate acceptance/rejection, concurrent safe retry, changed-content conflict, `pending`/`unknown`, progress and terminal outcome, late attachment, reconnect, gap disclosure, and attachment racing with final publication. Core is tested directly as well. No restart-durability claim. |
+| `0.2.0` | Cancellation | Cancel over Zenoh; repeated/concurrent cancellation, cancel/complete races, status separate from execution outcome, and preserved partial results. |
 | `0.3.0` | Durable accounting | Storage API, persistence before side effects, retry after a lost response and restart, cancellation accounting and recovery, and explicit `unknown` |
-| `0.4.0` | Integration boundaries | Stabilized Client, Executor, Storage, and Transport APIs plus the first Zenoh adapter with common contract tests |
-| `0.5.0` | Access and load control | Trusted caller context, authorization hooks, audit events, quotas, and protection against primary resource-exhaustion scenarios |
+| `0.4.0` | Integration boundaries | Refine and stabilize Client, Executor, Storage, and Transport APIs and the existing Zenoh adapter against shared contract tests, including read/subscription reconciliation. |
+| `0.5.0` | Access and load control | Production identity and authorization path, persisted audit, quotas, and protection against primary resource-exhaustion scenarios. Trusted caller context and authorization hooks already exist in the first API. |
 | `0.6.0` | First domain integration | One Probe runs through the module without reconnaissance concepts leaking into Core |
-| `0.7.0` | Related operations | Validated parent/link/ownership/cancellation-scope model, if justified by a real scenario |
+| `0.7.0` | Second domain integration | One App operation uses the same module; validate parent/link/ownership/cancellation scope only where a real scenario requires it. |
 | `0.8.0` | Failure hardening | Fault injection, crash points, concurrent retries, recovery, and load boundaries |
 | `0.9.0` | Stable-contract candidate | Frozen schemas and APIs, storage migrations, compatibility suite, and integration tests for Probe and an App operation |
 | `1.0.0` | Stable foundational module | Compatibility, recovery, operations, and security criteria are met; guarantees and limitations are published |
+| `1.x` | Compatible extensions | Add operation types and client conveniences without weakening the stable lifecycle, identity, or recovery guarantees. |
+| `2.0.0` | Distributed-operation direction | Explore coordination across Gecko instances when a distributed App needs it; define identity, authority, and recovery guarantees from real scenarios before approving scope. |
+| `3.0.0` | Dynamic-Mesh direction | Explore operation responsibility transfer under Mesh membership changes when required by product scenarios; do not infer automatic migration or recovery from the version number. |
 
-## Conditions for changing this example
+`Observe` is the operation-specific read/subscribe action and begins in `0.1.0`. The optional persistent product **Observer** for independent history and notifications remains a [Mesh / App 3.0.0 direction](../../../docs/1-mesh-app/model.md#1-purpose-boundaries-and-status); it is a different responsibility.
 
-The roadmap will be revised after `0.1.0` according to observed risks. Releases may be combined, divided, or reordered. In particular, security is not postponed until `0.5.0`: that row identifies a dedicated integration result, while required security properties must be designed into the first public contract.
+## Conditions for changing this plan
+
+The roadmap will be revised after `0.1.0` according to observed risks. Later releases may be combined, divided, or reordered. Security is not postponed until `0.5.0`: that row identifies a dedicated integration result, while required security properties must be designed into the first public contract. The initial Zenoh deployment is a restricted test path, not a production security claim.
 
 No intermediate version is required to support multiple languages. The project first needs one reference stack and language-neutral schemas and contract tests. An additional SDK should appear only for a real consumer and must not precede semantic stabilization.
 

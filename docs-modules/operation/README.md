@@ -10,13 +10,13 @@ Current version: [`0.1.0-dev`](VERSION). Implementation has not started yet; thi
 
 - [Model and boundaries](spec/model.md) — the authoritative common contract, responsibilities, lifecycle, reports, accounting, and validation.
 - [Decision status](spec/status.md) — accepted decisions, open questions, and links to their original context.
-- [Example roadmap](spec/roadmap.md) — a preliminary outline from `0.1.0` to `1.0.0`; the versions and their scope are not approved yet.
+- [Working roadmap](spec/roadmap.md) — the accepted first-experiment order from `0.1.0` to `0.3.0`, later `0.x` targets, and directions through `3.0.0`; no release is implemented yet.
 - [Security](spec/security.md) — required areas of security work and the admission gate for `1.0.0`.
 
 ## Documentation ownership
 
-[Model and contract](spec/model.md) owns Operation design and accepted common rules. [Security](spec/security.md) owns security requirements. [Decision status](spec/status.md) is the single register of accepted decisions, their provenance, and open questions, including ST1–ST5. The roadmap remains a preliminary release outline.
+[Model and contract](spec/model.md) owns Operation design and accepted common rules. [Security](spec/security.md) owns security requirements. [Decision status](spec/status.md) is the single register of accepted decisions, their provenance, and open questions, including ST1–ST5. The roadmap records a working release order, subject to experimental revision.
 
 Mesh / App and Gecko / Probe are consumers. They define requirements and domain-specific behavior, and use the module contract through references. Their documents do not override Operation design. A mismatch between a consumer requirement and module guarantees must be recorded and resolved explicitly.
 
-On November 1, 2026, the common contract was migrated here from Mesh / App §8.2. Historical references to its former location are provenance, not active authority. Product Gecko 1.0.0 requirements and the unreleased Operation version `0.1.0-dev` are distinct; migration does not approve release scope or claim implementation.
+On November 1, 2026, the common contract was migrated here from Mesh / App §8.2. Historical references to its former location are provenance, not active authority. The first Operation experiment was subsequently scoped to Start, Get, Observe, and minimal Zenoh; Cancel and durable accounting follow in `0.2.0` and `0.3.0`. Product Gecko 1.0.0 requirements and the unreleased Operation version `0.1.0-dev` are distinct. Agreed scope does not claim implementation.
