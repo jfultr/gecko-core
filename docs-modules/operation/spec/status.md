@@ -1,6 +1,6 @@
 # Operation: decision status
 
-November 1, 2026
+November 2, 2026
 
 [Overview](../README.md) · [Model](model.md) · [Working roadmap](roadmap.md) · [Security](security.md)
 
@@ -47,7 +47,7 @@ Accepted rules live in the module contract. This register owns all open Operatio
 | Transport | Minimal Zenoh Start/Get/Observe adapter is in `0.1.0`; select and validate SDK, keys, late-attachment behavior, and gaps without leaking transport details into Core | First adapter and common transport tests |
 | Compatibility | Whether ROS 2 Actions or Google LRO mappings and adapters are required | Explicit compatibility targets or an explicit decision not to provide them |
 | Observability | Correlation with traces, logs, and metrics without making telemetry the source of truth | Correlation context and export rules |
-| Implementation | Rust on Ubuntu-24.04 in WSL and a one-process first experiment are selected; package boundaries, schema format, and later supported platforms remain | ADR after validating the minimum prototype |
+| Implementation | Rust on Ubuntu-24.04 in WSL and a one-process first experiment are selected. Provisional layout since November 2, 2026 (ROB-59): a root Cargo workspace with Rust crates under `crates/`; the first crate is [`operations`](../../../crates/operations/README.md), without dependencies, with test support behind the `test-support` feature, and with the toolchain pinned to 1.99.1. Remaining: whether the Zenoh adapter is a feature of `operations` or a separate `operations-zenoh` crate; a synchronous or asynchronous Executor API; whether to add CI (the repository has none) and which runner; the toolchain upgrade policy; schema format and later supported platforms | ADR after validating the minimum prototype |
 | Security | Caller identity, authorization for every command, auditing, data protection, and resource exhaustion | Threat model and verifiable security gates before `1.0.0` |
 
 ### 2.1. Lifecycle decisions
@@ -88,7 +88,7 @@ The first-experiment scope and checks are accepted at the model level. Before im
 - Cancellation/completion outcome semantics are accepted at the model level; atomic arbitration and cancellation response details remain open.
 - Repeated and late Cancel semantics are accepted at the model level; response schemas, concurrency, persistence, and reconsideration after rejection remain open.
 - Core authority over state validation, recording, and snapshot numbering is accepted at the model level; executor notification and arbitration details remain open.
-- The first-experiment direction, including Observe and minimal Zenoh, and the working release order are accepted at the model level; implementation, prototype, and contract tests have not started.
+- The first-experiment direction, including Observe and minimal Zenoh, and the working release order are accepted at the model level. A Rust build and test harness skeleton exists (ROB-59, November 2, 2026); Start, Get, Observe, the Zenoh adapter, and contract tests are not implemented.
 - Exact schemas, SDK choices, transport guarantees, and later release contents remain subject to experiments.
 - November 1, 2026: common design migrated from Mesh / App into Operation; consumer requirements remain in domain documents. Historical links above record provenance, not contract authority.
 

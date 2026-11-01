@@ -4,7 +4,7 @@ An independent foundational Gecko module for starting and observing long-running
 
 Operation accepts or rejects a request, creates a distinct execution, publishes its progress and result, handles cancellation requests, and prevents duplicate execution after a lost response or a normal restart. The module has no knowledge of domain entities such as Probe, App, Block, or Line: domain executors integrate with it through a separate contract.
 
-Current version: [`0.1.0-dev`](VERSION). Implementation has not started yet; this is the version of the contract and first prototype under development, not a completed release.
+Current version: [`0.1.0-dev`](VERSION). Only the Rust build and test harness skeleton exists; Start, Get, Observe, and the Zenoh adapter are not implemented. This is the version of the contract and first prototype under development, not a completed release.
 
 ## Contents
 
@@ -12,6 +12,10 @@ Current version: [`0.1.0-dev`](VERSION). Implementation has not started yet; thi
 - [Decision status](spec/status.md) — accepted decisions, open questions, and links to their original context.
 - [Working roadmap](spec/roadmap.md) — the accepted first-experiment order from `0.1.0` to `0.3.0`, later `0.x` targets, and directions through `3.0.0`; no release is implemented yet.
 - [Security](spec/security.md) — required areas of security work and the admission gate for `1.0.0`.
+
+## Code
+
+The Rust implementation lives in the repository's root Cargo workspace rather than in this documentation center: [`crates/operations`](../../crates/operations/README.md). Run `make check` from the repository root. The crate README records commands, toolchain versions, and current limitations. The code layout is provisional; its open questions are in [decision status](spec/status.md#2-open-decisions).
 
 ## Documentation ownership
 

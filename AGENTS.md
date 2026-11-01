@@ -24,4 +24,4 @@ Notice repeated manual work and useful temporary scripts. Reuse existing tools; 
 
 On the Windows development host, run development, Git, dependency installation, builds, and tests through WSL, in the checkout layout the user selected for the session (Windows checkout or WSL checkout). Read [environment details](docs/development-environment.md) before running commands on that host. Do not silently switch development to Windows if WSL is unavailable.
 
-For documentation changes, run `python3 docs/check_links.py` from the repository root. Use the affected module's checks for code changes.
+For documentation changes, run `python3 docs/check_links.py` from the repository root. Use the affected module's checks for code changes; for Rust code, run `make check` from the repository root (formatting, build, Clippy, tests, smoke example, and the link check).

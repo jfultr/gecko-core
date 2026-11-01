@@ -13,7 +13,7 @@ English is the single documentation language. Documents use filenames without a 
 | Gecko / Probe | [Model](2-gecko-probe/model.md) | [Scenario](2-gecko-probe/scenario.md), [D2 plan](2-gecko-probe/work-plan.md), [decision history](2-gecko-probe/history.md), [research](2-gecko-probe/researches/operations-and-reconnaissance.md) |
 | Block / Anchor | [Model](3-block-anchor/model.md) | — |
 | Line / Point / Edge / View | [Model](4-line-point-edge-view/model.md) | — |
-| Foundational modules | [Catalog](core-modules.md) | [Operation module](../docs-modules/operation/README.md) |
+| Foundational modules | [Catalog](core-modules.md) | [Operation module](../docs-modules/operation/README.md), [Operation code](../crates/operations/README.md) |
 
 Each topic's `model.md` contains its active rules. Operation owns its common contract in `docs-modules/operation/spec/model.md` and centralizes decisions and open questions in `spec/status.md`; consumer documents supply requirements and domain behavior. Requirements, history, and working materials are separate from the model. Historical decisions do not override active rules. The root [development-cycle.md](development-cycle.md) describes work order and progress rather than a domain contract.
 
