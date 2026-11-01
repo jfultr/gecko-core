@@ -22,6 +22,6 @@ Notice repeated manual work and useful temporary scripts. Reuse existing tools; 
 
 ## Development environment
 
-On DESKTOP-L3QT1UI (user jf), keep this checkout at `C:\Home\projects\gecko` and run development, Git, dependency installation, builds, and tests through WSL `Ubuntu-24.04` in `/mnt/c/Home/projects/gecko`. Read [environment details](docs/development-environment.md) before running commands on that host. Do not silently switch development to Windows if WSL is unavailable.
+On the Windows development host, run development, Git, dependency installation, builds, and tests through WSL, in the checkout layout the user selected for the session (Windows checkout or WSL checkout). Read [environment details](docs/development-environment.md) before running commands on that host. Do not silently switch development to Windows if WSL is unavailable.
 
 For documentation changes, run `python3 docs/check_links.py` from the repository root. Use the affected module's checks for code changes.
