@@ -10,9 +10,9 @@ This document illustrates a possible order for reducing risk and producing verif
 
 | Version | Possible objective | Example verifiable result |
 |---|---|---|
-| `0.1.0` | Minimum contract | In-memory Core and test executor: start, accepted/rejected, get, progress, terminal result, and basic identity and transition tests |
-| `0.2.0` | Cancellation and observation | Observation after late attachment, repeated cancellation, cancel/complete races, and partial results |
-| `0.3.0` | Durable accounting | Storage API, persistence before side effects, retry after a lost response, restart, and explicit `unknown` |
+| `0.1.0` | First experiment | Rust on Ubuntu-24.04 in WSL; Start and Get with a test executor and in-memory accounting: acceptance and execution, safe retry, changed-content conflict, and uncertainty after a lost acknowledgement. Cancel and Observe are deferred to the next stage. |
+| `0.2.0` | Cancellation and observation | Cancel and Observe with observation after late attachment and reconnection, repeated cancellation, cancel/complete races, and partial results; initially tested in memory |
+| `0.3.0` | Durable accounting | Storage API, persistence before side effects, retry after a lost response and restart, cancellation accounting and recovery, and explicit `unknown` |
 | `0.4.0` | Integration boundaries | Stabilized Client, Executor, Storage, and Transport APIs plus the first Zenoh adapter with common contract tests |
 | `0.5.0` | Access and load control | Trusted caller context, authorization hooks, audit events, quotas, and protection against primary resource-exhaustion scenarios |
 | `0.6.0` | First domain integration | One Probe runs through the module without reconnaissance concepts leaking into Core |
@@ -31,6 +31,7 @@ No intermediate version is required to support multiple languages. The project f
 
 Before the first stable release, the project must at least:
 
+- implement and test Start, Get, Observe, and Cancel against the public contract, including concurrent calls, repeated requests, observation reconnection, and recovery after restart;
 - approve and test the public state machine and compatibility rules;
 - demonstrate safe retry after a lost response and a normal restart;
 - define behavior at every supported crash point and document the limits of its guarantees;
