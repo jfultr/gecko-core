@@ -1,0 +1,72 @@
+zenoh=1.10.2 (pinned in Cargo.toml) arch=x86_64 os=linux
+== start: query outcomes, rejection, timeout, retry, concurrency, normalization
+  A no-queryable: replies=[] elapsed=377.171µs
+  B malformed: [Ok("{\"outcome\":\"rejected\",\"code\":\"invalid_input\",\"message\":\"malformed: expected ident at line 1 column 2\"}")]
+  B unknown type: Some(Rejected { code: UnknownOperationType, message: "unknown type nope" })
+  D first=Some(Accepted { operation_id: f39d21de-aca9-4d32-8b1d-e1fdb7f7328d, report_key: "gecko/g1/op/f39d21de-aca9-4d32-8b1d-e1fdb7f7328d/report", observe_key: "gecko/g1/op/f39d21de-aca9-4d32-8b1d-e1fdb7f7328d/observe", retried: false })
+    retry(reordered keys, new trace)=Some(Accepted { operation_id: f39d21de-aca9-4d32-8b1d-e1fdb7f7328d, report_key: "gecko/g1/op/f39d21de-aca9-4d32-8b1d-e1fdb7f7328d/report", observe_key: "gecko/g1/op/f39d21de-aca9-4d32-8b1d-e1fdb7f7328d/observe", retried: true })
+    retry with b=1.0 instead of 1: Some(Rejected { code: RequestIdConflict, message: "request_id reused with different content" })
+  E 32 concurrent retries -> distinct operation ids: 1
+  G terminal op, observe after=0: ["snapshot(seq=3,Succeeded,gap_before=false)", "end(Terminal)"]
+    terminal op, observe after=3 (cursor at final): ["end(Terminal)"]
+    dropped report: get=Some(Unavailable { operation_id: a2ed03b7-cb6f-484a-95aa-4da02090974f }) observe=["unavailable"]
+    observe with `&`-separated parameters: Some("{\"frame\":\"rejected\",\"code\":\"invalid_input\",\"message\":\"after: invalid digit found in string\"}")
+    unknown op: get=Some(NotFound) observe=["not_found"]
+  C late reply: caller replies=[Err("Timeout [encoding zenoh/string]")] elapsed=302.201869ms
+    retry after timeout: [Ok("{\"outcome\":\"accepted\",\"operation_id\":\"7a83058c-fa3e-4ab2-8216-c618a981ad9b\",\"report_key\":\"gecko/g1/op/7a83058c-fa3e-4ab2-8216-c618a981ad9b/report\",\"observe_key\":\"gecko/g1/op/7a83058c-fa3e-4ab2-8216-c618a981ad9b/observe\",\"retried\":true}")]
+  F two Gecko queryables, default: replies=1
+  F two Gecko queryables, target=All,consolidation=None: replies=2
+== observe-race: attach vs final publication, 200 iterations per pattern
+        subscribe-only: missed_terminal=120/200 p50_to_terminal=1.255081ms
+    get-then-subscribe: missed_terminal=5/200 p50_to_terminal=648.032µs
+    subscribe-then-get: missed_terminal=0/200 p50_to_terminal=855.495µs
+       streaming-query: missed_terminal=0/200 p50_to_terminal=736.185µs
+  streaming-query-auto: missed_terminal=200/200 p50_to_terminal=0ns
+== slow-subscriber: 2000 snapshots published back-to-back, consumer sleeps 1 ms/sample
+  ring(32): publish_2000=4.090024ms received=36 gaps=4 last_seq_received=2001 get_latest_seq=2001 get_probe_ok=true get_probe_latency=729.173µs
+  fifo(32): publish_2000=3.289009ms received=2000 gaps=0 last_seq_received=2001 get_latest_seq=2001 get_probe_ok=false get_probe_latency=2.002227676s
+== reconnect: caller link cut for 1.5 s; 300 snapshots published every 20 ms
+  Get during outage: None after 975.975µs
+  first successful Get after restore at Some(3.700963146s)
+  cut_at=601.358512ms restored_at=2.103898358s received=166 last=Some(301)
+  gap: seq 28 -> 163 (resumed at 3.625110983s, 1.521212625s after restore)
+  Get after restore: Some(301)
+== executor: event identity (token, event_seq), duplicates, stale, ordering, conflicts
+                       progress before ack: InvalidTransition { from: Pending }
+                                       ack: Applied { sequence: 2 }
+                           ack redelivered: Duplicate { sequence: 2 }
+     event_seq 1 reused with other content: Stale
+                         event_seq skips 2: OutOfOrder { expected: 2 }
+                                progress a: Applied { sequence: 3 }
+                    progress a redelivered: Duplicate { sequence: 3 }
+                 repeated ack as new event: NoChange { sequence: 3 }
+   terminal cancelled (no Cancel in 0.1.0): InvalidTransition { from: Running }
+                        terminal succeeded: Applied { sequence: 4 }
+            terminal succeeded redelivered: Duplicate { sequence: 4 }
+              late progress after terminal: InvalidTransition { from: Succeeded }
+               conflicting terminal failed: ConflictingTerminal { recorded: Succeeded }
+                same terminal as new event: NoChange { sequence: 4 }
+                             unknown token: UnknownToken
+  final snapshot via Get: seq=4 state=Succeeded
+  32 concurrent copies of one ack: applied=1 duplicate=31
+  succeeded vs failed racing on event_seq 2: [Applied { sequence: 3 }, Stale]
+  handoff lost: Applied { sequence: 2 }
+  late ack with same token: Applied { sequence: 3 }
+  after late ack: seq=3 state=Running
+== reconnect-observe: observers behind a cuttable proxy; Gecko publishes every 20 ms
+  [finish-after-restore] cut=601.43ms restored=2.10s terminal_published=6.72s final_seq=302
+    subscribe-then-get: terminal=Some(6.717584894s) via=sub last=302 samples=164 seq_gaps=1 liveliness=["PUT@908.807µs", "DELETE@602.234701ms", "PUT@3.613561193s"]
+    + liveliness repair: terminal=Some(6.717543001s) via=sub last=302 samples=164 seq_gaps=1 repairs=1 liveliness=["PUT@974.166µs", "DELETE@602.240313ms", "PUT@3.613531606s"]
+    streaming query: terminal=Some(6.717625845s) last=302 frames=164 seq_gaps=1 gap_before=1 queries=31 ends=["closed x30 [602.414925ms..3.555116476s]", "Terminal@6.71762734s"]
+  [finish-during-outage] cut=402.08ms restored=2.41s terminal_published=1.33s final_seq=62
+    subscribe-then-get: terminal=None via= last=20 samples=17 seq_gaps=0 liveliness=["PUT@812.941µs", "DELETE@402.802348ms", "PUT@3.416797012s"]
+    + liveliness repair: terminal=Some(3.417303384s) via=get-repair last=62 samples=17 seq_gaps=1 repairs=1 liveliness=["PUT@838.302µs", "DELETE@402.673883ms", "PUT@3.416670822s"]
+    streaming query: terminal=Some(3.48733579s) last=62 frames=19 seq_gaps=1 gap_before=1 queries=31 ends=["closed x30 [402.796844ms..3.383296662s]", "Terminal@3.487337166s"]
+== slow-observe: streaming query, 2000 snapshots back-to-back, observer ~1 ms/frame
+  reply=default-fifo(256) watcher=8: publish_2000=5.40ms terminal=Some(334.092428ms) last=2002 frames=11 seq_gaps=1 gap_before=1 queries=2 ends=["Lagged@227.147017ms", "Terminal@336.365335ms"] get_probe_ok=true get_probe_latency=808.96µs
+  reply=fifo(32) watcher=8: publish_2000=5.46ms terminal=Some(325.824441ms) last=2002 frames=11 seq_gaps=1 gap_before=1 queries=2 ends=["Lagged@222.449362ms", "Terminal@327.024737ms"] get_probe_ok=true get_probe_latency=716.38µs
+  reply=ring(32) watcher=8: publish_2000=4.84ms terminal=Some(307.08712ms) last=2002 frames=3 seq_gaps=1 gap_before=1 queries=2 ends=["closed x2 [205.367156ms..309.376083ms]"] get_probe_ok=true get_probe_latency=761.36µs
+  reply=default-fifo(256) watcher=4096: publish_2000=6.12ms terminal=Some(4.769023342s) last=2002 frames=2001 seq_gaps=0 gap_before=0 queries=1 ends=["Terminal@4.771309813s"] get_probe_ok=false get_probe_latency=2.00s
+== advanced: zenoh-ext AdvancedPublisher(cache=16, heartbeat) / AdvancedSubscriber(history, recovery)
+  late join after 10 puts: history delivered [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  40 puts during outage, cache=16: after restore received 16 samples, first=Some(35) last=Some(50); miss events nb=[24] (restore at 986.656659ms)

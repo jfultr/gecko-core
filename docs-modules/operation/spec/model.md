@@ -312,6 +312,8 @@ Gecko selects Zenoh for integration. The first `0.1.0` experiment includes a min
 
 Initial reference materials: [Zenoh abstractions](https://zenoh.io/docs/manual/abstractions/), [AdvancedSubscriber 1.10.1](https://docs.rs/zenoh-ext/1.10.1/zenoh_ext/struct.AdvancedSubscriber.html), [filesystem backend](https://github.com/eclipse-zenoh/zenoh-backend-filesystem). These are further-research links rather than a mandatory dependency set. SDKs, versions, and guarantees are checked during implementation.
 
+Spike evidence for `0.1.0`: the [ROB-60 report](../research/zenoh-spike/REPORT.md) measures Zenoh `1.10.2` query outcomes, attach races, reconnection, and slow observers on one host. It is investigation material and proposes choices Z1–Z6 in [decision status](status.md#23-choices-raised-by-the-zenoh-spike-rob-60). It does not change the rules above.
+
 ## 10. Validation
 
 This is a test outline, not existing tests or experimental evidence.

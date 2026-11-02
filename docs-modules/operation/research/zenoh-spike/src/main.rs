@@ -47,27 +47,27 @@ async fn open_caller(port: u16) -> Session {
     zenoh::open(c).await.unwrap()
 }
 
-/// Serves Start, Get and streaming Observe for `core` on `session`.
+/// Serves Start, Get and streaming Observe for `core` on `session`, and declares the Gecko
+/// liveliness token. All typed outcomes are `Ok` replies; `reply_err` is not used (choice 3).
 async fn serve(session: &Session, core: Core, start_delay: Duration) {
+    let token = session.liveliness().declare_token(ALIVE_KEY).await.unwrap();
+    std::mem::forget(token); // lives as long as the session
+
     let q = session.declare_queryable(format!("{PREFIX}/start")).await.unwrap();
     let c = core.clone();
     tokio::spawn(async move {
         while let Ok(query) = q.recv_async().await {
             let c = c.clone();
             tokio::spawn(async move {
-                let Some(payload) = query.payload() else {
-                    query.reply_err("missing payload").await.unwrap();
-                    return;
+                let parsed = match query.payload() {
+                    None => Err("missing payload".to_string()),
+                    Some(p) => serde_json::from_slice::<StartRequest>(&p.to_bytes()).map_err(|e| format!("malformed: {e}")),
                 };
-                let req: StartRequest = match serde_json::from_slice(&payload.to_bytes()) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        query.reply_err(format!("malformed: {e}")).await.unwrap();
-                        return;
-                    }
+                let resp = match parsed {
+                    Ok(req) => c.start(CALLER, &req).await,
+                    Err(message) => StartResponse::Rejected { code: RejectCode::InvalidInput, message },
                 };
                 // Acceptance is committed before the delayed reply: a lost/late reply leaves an accepted op.
-                let resp = c.start(CALLER, &req).await;
                 tokio::time::sleep(start_delay).await;
                 let r = query.reply(query.key_expr().clone(), serde_json::to_vec(&resp).unwrap()).await;
                 if let Err(e) = r {
@@ -81,8 +81,7 @@ async fn serve(session: &Session, core: Core, start_delay: Duration) {
     let c = core.clone();
     tokio::spawn(async move {
         while let Ok(query) = q.recv_async().await {
-            let id = op_id_from_key(query.key_expr().as_str());
-            let resp = match id {
+            let resp = match op_id_from_key(query.key_expr().as_str()) {
                 Some(id) => c.get(id).await,
                 None => GetResponse::NotFound,
             };
@@ -95,55 +94,73 @@ async fn serve(session: &Session, core: Core, start_delay: Duration) {
     tokio::spawn(async move {
         while let Ok(query) = q.recv_async().await {
             let c = c.clone();
-            tokio::spawn(async move {
-                let after: Option<u64> = query.parameters().get("after").and_then(|v| v.parse().ok());
-                let key = query.key_expr().clone();
-                let send = |f: ObserveFrame| {
-                    let q = &query;
-                    let k = key.clone();
-                    async move { q.reply(k, serde_json::to_vec(&f).unwrap()).await }
-                };
-                let Some((latest, mut rx)) = (match op_id_from_key(key.as_str()) {
-                    Some(id) => c.attach(id, 8).await,
-                    None => None,
-                }) else {
-                    let _ = send(ObserveFrame::NotFound).await;
-                    return;
-                };
-                let mut last = after.unwrap_or(0);
-                if latest.sequence > last {
-                    let gap = latest.sequence > last + 1 && after.is_some();
-                    last = latest.sequence;
-                    let term = latest.state.is_terminal();
-                    if send(ObserveFrame::Snapshot { snapshot: latest, gap_before: gap }).await.is_err() {
-                        return;
-                    }
-                    if term {
-                        let _ = send(ObserveFrame::End { reason: "terminal".into() }).await;
-                        return;
-                    }
-                }
-                let lease = tokio::time::sleep(Duration::from_secs(5));
-                tokio::pin!(lease);
-                loop {
-                    tokio::select! {
-                        s = rx.recv() => match s {
-                            Some(s) => {
-                                if s.sequence <= last { continue; }
-                                let gap = s.sequence > last + 1;
-                                last = s.sequence;
-                                let term = s.state.is_terminal();
-                                if send(ObserveFrame::Snapshot { snapshot: s, gap_before: gap }).await.is_err() { return; }
-                                if term { let _ = send(ObserveFrame::End { reason: "terminal".into() }).await; return; }
-                            }
-                            None => { let _ = send(ObserveFrame::End { reason: "lagged".into() }).await; return; }
-                        },
-                        _ = &mut lease => { let _ = send(ObserveFrame::End { reason: "lease".into() }).await; return; }
-                    }
-                }
-            });
+            tokio::spawn(async move { serve_observe(&c, query).await });
         }
     });
+}
+
+/// One streaming Observe query. Selector parameters (Zenoh separates them with `;`, not `&`):
+/// `after=<seq>` (client cursor), `cap=<n>` (test only: Core watcher capacity, default 8),
+/// `lease_ms=<n>` (test only, default 5000). An unparsable cursor is rejected, not ignored.
+async fn serve_observe(c: &Core, query: zenoh::query::Query) {
+    let p = query.parameters();
+    let after: Option<u64> = match p.get("after").map(|v| v.parse::<u64>()) {
+        None => None,
+        Some(Ok(v)) => Some(v),
+        Some(Err(e)) => {
+            let f = ObserveFrame::Rejected { code: RejectCode::InvalidInput, message: format!("after: {e}") };
+            return drop(query.reply(query.key_expr().clone(), serde_json::to_vec(&f).unwrap()).await);
+        }
+    };
+    let cap: usize = p.get("cap").and_then(|v| v.parse().ok()).unwrap_or(8);
+    let lease_ms: u64 = p.get("lease_ms").and_then(|v| v.parse().ok()).unwrap_or(5000);
+    let key = query.key_expr().clone();
+    let send = |f: ObserveFrame| {
+        let (q, k) = (&query, key.clone());
+        async move { q.reply(k, serde_json::to_vec(&f).unwrap()).await }
+    };
+    let attach = match op_id_from_key(key.as_str()) {
+        Some(id) => c.attach(id, cap).await,
+        None => Attach::NotFound,
+    };
+    let (latest, rx) = match attach {
+        Attach::NotFound => return drop(send(ObserveFrame::NotFound).await),
+        Attach::Unavailable => {
+            let id = op_id_from_key(key.as_str()).unwrap();
+            return drop(send(ObserveFrame::Unavailable { operation_id: id }).await);
+        }
+        Attach::Attached { latest, rx } => (latest, rx),
+    };
+    let mut last = after.unwrap_or(0);
+    if latest.sequence > last {
+        let gap_before = last > 0 && latest.sequence > last + 1;
+        last = latest.sequence;
+        if send(ObserveFrame::Snapshot { snapshot: latest, gap_before }).await.is_err() {
+            return;
+        }
+    }
+    // Already terminal: the cursor may already be at the final snapshot; end as terminal either way.
+    let Some(mut rx) = rx else {
+        return drop(send(ObserveFrame::End { reason: EndReason::Terminal }).await);
+    };
+    let lease = tokio::time::sleep(Duration::from_millis(lease_ms));
+    tokio::pin!(lease);
+    loop {
+        tokio::select! {
+            s = rx.recv() => match s {
+                Some(s) => {
+                    if s.sequence <= last { continue; }
+                    let gap_before = s.sequence > last + 1;
+                    last = s.sequence;
+                    let term = s.state.is_terminal();
+                    if send(ObserveFrame::Snapshot { snapshot: s, gap_before }).await.is_err() { return; }
+                    if term { return drop(send(ObserveFrame::End { reason: EndReason::Terminal }).await); }
+                }
+                None => return drop(send(ObserveFrame::End { reason: EndReason::Lagged }).await),
+            },
+            _ = &mut lease => return drop(send(ObserveFrame::End { reason: EndReason::Lease }).await),
+        }
+    }
 }
 
 fn op_id_from_key(k: &str) -> Option<Uuid> {
@@ -171,7 +188,7 @@ async fn raw_start(c: &Session, payload: Vec<u8>, timeout: Duration) -> (Vec<Res
     while let Ok(r) = replies.recv_async().await {
         out.push(match r.result() {
             Ok(s) => Ok(String::from_utf8_lossy(&s.payload().to_bytes()).into_owned()),
-            Err(e) => Err(String::from_utf8_lossy(&e.payload().to_bytes()).into_owned()),
+            Err(e) => Err(format!("{} [encoding {}]", String::from_utf8_lossy(&e.payload().to_bytes()), e.encoding())),
         });
     }
     (out, t.elapsed())
@@ -209,7 +226,7 @@ async fn s_start() {
     c.close().await.unwrap();
 
     let (g, c, _core, _) = setup(Duration::ZERO).await;
-    // B. Malformed payload -> reply_err; semantic rejection -> Ok(Rejected).
+    // B. Malformed payload and semantic rejection -> both Ok(Rejected{code}).
     let (out, _) = raw_start(&c, b"not json".to_vec(), Duration::from_secs(1)).await;
     println!("  B malformed: {out:?}");
     let mut bad = req(Uuid::new_v4(), serde_json::json!({}));
@@ -240,6 +257,22 @@ async fn s_start() {
         ops.insert(h.await.unwrap());
     }
     println!("  E 32 concurrent retries -> distinct operation ids: {}", ops.len());
+    g.close().await.unwrap();
+    c.close().await.unwrap();
+
+    // G. Observe/Get for a terminal op and for a dropped report.
+    let (g, c, core, _) = setup(Duration::ZERO).await;
+    let op = op_of(&start(&c, &req(Uuid::new_v4(), serde_json::json!({}))).await);
+    core.advance(op, State::Running, "work").await;
+    let fin = core.advance(op, State::Succeeded, "done").await;
+    println!("  G terminal op, observe after=0: {:?}", observe_frames(&c, op, 0).await);
+    println!("    terminal op, observe after={fin} (cursor at final): {:?}", observe_frames(&c, op, fin).await);
+    core.drop_report(op).await;
+    println!("    dropped report: get={:?} observe={:?}", get(&c, op).await, observe_frames(&c, op, 0).await);
+    let r = c.get(format!("{}?after=0&cap=1", observe_key(op))).consolidation(ConsolidationMode::None).await.unwrap();
+    let f = r.recv_async().await.ok().and_then(|r| r.result().ok().map(|s| String::from_utf8_lossy(&s.payload().to_bytes()).into_owned()));
+    println!("    observe with `&`-separated parameters: {f:?}");
+    println!("    unknown op: get={:?} observe={:?}", get(&c, Uuid::new_v4()).await, observe_frames(&c, Uuid::new_v4(), 0).await);
     g.close().await.unwrap();
     c.close().await.unwrap();
 
@@ -635,6 +668,399 @@ async fn s_advanced() {
     c.close().await.unwrap();
 }
 
+/// One streaming Observe query; returns compact frame descriptions.
+async fn observe_frames(c: &Session, op: Uuid, after: u64) -> Vec<String> {
+    let replies = c
+        .get(format!("{}?after={after}", observe_key(op)))
+        .consolidation(ConsolidationMode::None)
+        .timeout(Duration::from_secs(2))
+        .await
+        .unwrap();
+    let mut out = vec![];
+    while let Ok(r) = replies.recv_async().await {
+        out.push(match r.result() {
+            Ok(s) => match serde_json::from_slice::<ObserveFrame>(&s.payload().to_bytes()).unwrap() {
+                ObserveFrame::Snapshot { snapshot, gap_before } => {
+                    format!("snapshot(seq={},{:?},gap_before={gap_before})", snapshot.sequence, snapshot.state)
+                }
+                ObserveFrame::End { reason } => format!("end({reason:?})"),
+                ObserveFrame::Unavailable { .. } => "unavailable".into(),
+                ObserveFrame::NotFound => "not_found".into(),
+                ObserveFrame::Rejected { code, .. } => format!("rejected({code:?})"),
+            },
+            Err(e) => format!("err({})", String::from_utf8_lossy(&e.payload().to_bytes())),
+        });
+    }
+    out
+}
+
+/// Executor notification identity and arbitration (P5 / ST3), directly against Core.
+async fn s_executor() {
+    println!("== executor: event identity (token, event_seq), duplicates, stale, ordering, conflicts");
+    let (g, c, core, _) = setup(Duration::ZERO).await;
+    let op = op_of(&start(&c, &req(Uuid::new_v4(), serde_json::json!({}))).await);
+    let tok = core.token(op).await;
+    let ev = |n: u64, event: EventKind| ExecutorEvent { token: tok, event_seq: n, event };
+    let prog = |s: &str| EventKind::Progress { progress: Progress::stage(s) };
+    let term = |st: State| EventKind::Terminal { state: st, progress: Progress::stage("end") };
+    let steps: Vec<(&str, ExecutorEvent)> = vec![
+        ("progress before ack", ev(1, prog("early"))),
+        ("ack", ev(1, EventKind::Ack)),
+        ("ack redelivered", ev(1, EventKind::Ack)),
+        ("event_seq 1 reused with other content", ev(1, prog("x"))),
+        ("event_seq skips 2", ev(3, prog("a"))),
+        ("progress a", ev(2, prog("a"))),
+        ("progress a redelivered", ev(2, prog("a"))),
+        ("repeated ack as new event", ev(3, EventKind::Ack)),
+        ("terminal cancelled (no Cancel in 0.1.0)", ev(4, term(State::Cancelled))),
+        ("terminal succeeded", ev(4, term(State::Succeeded))),
+        ("terminal succeeded redelivered", ev(4, term(State::Succeeded))),
+        ("late progress after terminal", ev(5, prog("late"))),
+        ("conflicting terminal failed", ev(5, term(State::Failed))),
+        ("same terminal as new event", ev(5, term(State::Succeeded))),
+        ("unknown token", ExecutorEvent { token: Uuid::new_v4(), event_seq: 1, event: EventKind::Ack }),
+    ];
+    for (name, e) in steps {
+        println!("  {name:>40}: {:?}", core.notify(&e).await);
+    }
+    if let Some(GetResponse::Report { snapshot }) = get(&c, op).await {
+        println!("  final snapshot via Get: seq={} state={:?}", snapshot.sequence, snapshot.state);
+    }
+
+    // Concurrent redelivery of the same event: one snapshot.
+    let op = op_of(&start(&c, &req(Uuid::new_v4(), serde_json::json!({}))).await);
+    let tok = core.token(op).await;
+    let mut hs = vec![];
+    for _ in 0..32 {
+        let core = core.clone();
+        hs.push(tokio::spawn(async move {
+            core.notify(&ExecutorEvent { token: tok, event_seq: 1, event: EventKind::Ack }).await
+        }));
+    }
+    let mut applied = 0;
+    let mut dup = 0;
+    for h in hs {
+        match h.await.unwrap() {
+            NotifyOutcome::Applied { .. } => applied += 1,
+            NotifyOutcome::Duplicate { .. } => dup += 1,
+            o => println!("  unexpected {o:?}"),
+        }
+    }
+    println!("  32 concurrent copies of one ack: applied={applied} duplicate={dup}");
+
+    // Two different events racing for the same event_seq: one wins, the other is stale.
+    let mut hs = vec![];
+    for st in [State::Succeeded, State::Failed] {
+        let core = core.clone();
+        hs.push(tokio::spawn(async move {
+            core.notify(&ExecutorEvent { token: tok, event_seq: 2, event: EventKind::Terminal { state: st, progress: Progress::stage("end") } })
+                .await
+        }));
+    }
+    let r: Vec<_> = futures_join(hs).await;
+    println!("  succeeded vs failed racing on event_seq 2: {r:?}");
+
+    // Ambiguous handoff: pending -> unknown (Core), later ack with the same token -> running.
+    let op = op_of(&start(&c, &req(Uuid::new_v4(), serde_json::json!({}))).await);
+    let tok = core.token(op).await;
+    println!("  handoff lost: {:?}", core.handoff_lost(op).await);
+    println!("  late ack with same token: {:?}", core.notify(&ExecutorEvent { token: tok, event_seq: 1, event: EventKind::Ack }).await);
+    if let Some(GetResponse::Report { snapshot }) = get(&c, op).await {
+        println!("  after late ack: seq={} state={:?}", snapshot.sequence, snapshot.state);
+    }
+    g.close().await.unwrap();
+    c.close().await.unwrap();
+}
+
+/// Collapses runs of the same end kind: `closed x30 [0.60s..3.55s]`.
+fn summarize_ends(ends: &[String]) -> Vec<String> {
+    let mut out: Vec<(String, usize, String, String)> = vec![];
+    for e in ends {
+        let (k, at) = e.split_once('@').unwrap_or((e, ""));
+        match out.last_mut() {
+            Some(l) if l.0 == k => {
+                l.1 += 1;
+                l.3 = at.to_string();
+            }
+            _ => out.push((k.to_string(), 1, at.to_string(), at.to_string())),
+        }
+    }
+    out.into_iter()
+        .map(|(k, n, a, b)| if n == 1 { format!("{k}@{a}") } else { format!("{k} x{n} [{a}..{b}]") })
+        .collect()
+}
+
+async fn futures_join<T>(hs: Vec<tokio::task::JoinHandle<T>>) -> Vec<T> {
+    let mut v = vec![];
+    for h in hs {
+        v.push(h.await.unwrap());
+    }
+    v
+}
+
+#[derive(Clone, Copy, Debug)]
+enum H {
+    Default,
+    Fifo(usize),
+    Ring(usize),
+}
+
+/// What a streaming-query observer saw, over all re-issued queries.
+#[derive(Default, Debug)]
+struct StreamStats {
+    frames: usize,
+    seq_gaps: usize,
+    gap_before_flags: usize,
+    ends: Vec<String>,
+    queries: usize,
+    terminal_at: Option<Duration>,
+    last: u64,
+}
+
+/// Streaming-query observer: re-issues `observe?after=<last>` until terminal or `deadline`.
+async fn stream_observer(c: Session, op: Uuid, h: H, extra: String, per_frame: Duration, t0: Instant, deadline: Duration) -> StreamStats {
+    let mut st = StreamStats::default();
+    while st.terminal_at.is_none() && t0.elapsed() < deadline {
+        st.queries += 1;
+        let b = c
+            .get(format!("{}?after={}{extra}", observe_key(op), st.last))
+            .consolidation(ConsolidationMode::None)
+            .timeout(Duration::from_secs(10));
+        let mut ended = false;
+        macro_rules! drain {
+            ($replies:expr) => {{
+                let replies = $replies;
+                while let Ok(r) = replies.recv_async().await {
+                    match r.result() {
+                        Ok(s) => match serde_json::from_slice::<ObserveFrame>(&s.payload().to_bytes()).unwrap() {
+                            ObserveFrame::Snapshot { snapshot, gap_before } => {
+                                st.frames += 1;
+                                if gap_before {
+                                    st.gap_before_flags += 1;
+                                }
+                                if snapshot.sequence > st.last + 1 && st.last > 0 {
+                                    st.seq_gaps += 1;
+                                }
+                                if snapshot.sequence > st.last {
+                                    st.last = snapshot.sequence;
+                                }
+                                if snapshot.state.is_terminal() && st.terminal_at.is_none() {
+                                    st.terminal_at = Some(t0.elapsed());
+                                }
+                                if !per_frame.is_zero() {
+                                    tokio::time::sleep(per_frame).await;
+                                }
+                            }
+                            ObserveFrame::End { reason } => {
+                                ended = true;
+                                st.ends.push(format!("{reason:?}@{:?}", t0.elapsed()));
+                            }
+                            other => {
+                                ended = true;
+                                st.ends.push(format!("{other:?}"));
+                            }
+                        },
+                        Err(e) => {
+                            ended = true;
+                            st.ends.push(format!("err({})@{:?}", String::from_utf8_lossy(&e.payload().to_bytes()), t0.elapsed()));
+                        }
+                    }
+                }
+            }};
+        }
+        match h {
+            H::Default => drain!(b.await.unwrap()),
+            H::Fifo(n) => drain!(b.with(FifoChannel::new(n)).await.unwrap()),
+            H::Ring(n) => drain!(b.with(RingChannel::new(n)).await.unwrap()),
+        }
+        if !ended {
+            st.ends.push(format!("closed@{:?}", t0.elapsed()));
+        }
+        if st.terminal_at.is_none() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+    st
+}
+
+#[derive(Default, Debug)]
+struct SubStats {
+    samples: usize,
+    seq_gaps: usize,
+    repairs: usize,
+    liveliness: Vec<String>,
+    terminal_at: Option<Duration>,
+    terminal_via: &'static str,
+    last: u64,
+}
+
+/// subscribe-then-Get observer with RingChannel(64). With `repair`, it also watches the Gecko
+/// liveliness token and issues a Get when the token reappears after a Delete.
+async fn sub_observer(c: Session, op: Uuid, repair: bool, t0: Instant, deadline: Duration) -> SubStats {
+    let mut st = SubStats::default();
+    let sub = c.declare_subscriber(snapshot_key(op)).with(RingChannel::new(64)).await.unwrap();
+    let liv = c.liveliness().declare_subscriber(ALIVE_KEY).history(true).await.unwrap();
+    let apply = |st: &mut SubStats, s: Snapshot, via: &'static str| {
+        if s.sequence <= st.last {
+            return;
+        }
+        if st.last > 0 && s.sequence > st.last + 1 {
+            st.seq_gaps += 1;
+        }
+        st.last = s.sequence;
+        if s.state.is_terminal() && st.terminal_at.is_none() {
+            st.terminal_at = Some(t0.elapsed());
+            st.terminal_via = via;
+        }
+    };
+    if let Some(GetResponse::Report { snapshot }) = get(&c, op).await {
+        apply(&mut st, snapshot, "get");
+    }
+    let mut saw_delete = false;
+    while st.terminal_at.is_none() && t0.elapsed() < deadline {
+        tokio::select! {
+            s = sub.recv_async() => {
+                let Ok(s) = s else { break };
+                st.samples += 1;
+                apply(&mut st, serde_json::from_slice(&s.payload().to_bytes()).unwrap(), "sub");
+            }
+            l = liv.recv_async() => {
+                let Ok(l) = l else { break };
+                st.liveliness.push(format!("{}@{:?}", l.kind(), t0.elapsed()));
+                if l.kind() == zenoh::sample::SampleKind::Delete {
+                    saw_delete = true;
+                } else if saw_delete && repair {
+                    saw_delete = false;
+                    st.repairs += 1;
+                    if let Some(GetResponse::Report { snapshot }) = get(&c, op).await {
+                        apply(&mut st, snapshot, "get-repair");
+                    }
+                }
+            }
+            _ = tokio::time::sleep(Duration::from_millis(200)) => {}
+        }
+    }
+    st
+}
+
+/// Observe paths across a 1.5–2 s link cut: plain subscribe-then-Get, the same with
+/// liveliness-triggered Get repair, and the streaming query re-issued with `after=<last>`.
+async fn s_reconnect_observe() {
+    println!("== reconnect-observe: observers behind a cuttable proxy; Gecko publishes every 20 ms");
+    for (case, ticks, cut_at, outage) in [
+        ("finish-after-restore", 300u32, 600u64, 1500u64),
+        ("finish-during-outage", 60, 400, 2000),
+    ] {
+        let port = free_port();
+        let g = open_gecko(port).await;
+        let core = Core::new(g.clone());
+        serve(&g, core.clone(), Duration::ZERO).await;
+        let mut proxy = Proxy::new(port).await;
+        let direct = open_caller(port).await;
+        let op = op_of(&start(&direct, &req(Uuid::new_v4(), serde_json::json!({}))).await);
+        core.advance(op, State::Running, "work").await;
+        let (c1, c2, c3) = (open_caller(proxy.port).await, open_caller(proxy.port).await, open_caller(proxy.port).await);
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let t0 = Instant::now();
+        let deadline = Duration::from_secs(10);
+        let o1 = tokio::spawn(sub_observer(c1.clone(), op, false, t0, deadline));
+        let o2 = tokio::spawn(sub_observer(c2.clone(), op, true, t0, deadline));
+        let o3 = tokio::spawn(stream_observer(c3.clone(), op, H::Default, String::new(), Duration::ZERO, t0, deadline));
+        let pubber = {
+            let core = core.clone();
+            tokio::spawn(async move {
+                let mut fin = Duration::ZERO;
+                for i in 0..ticks {
+                    let st = if i == ticks - 1 { State::Succeeded } else { State::Running };
+                    core.advance(op, st, "tick").await;
+                    if i == ticks - 1 {
+                        fin = t0.elapsed();
+                    }
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+                fin
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(cut_at)).await;
+        proxy.down();
+        let cut = t0.elapsed();
+        tokio::time::sleep(Duration::from_millis(outage)).await;
+        proxy.up().await;
+        let restored = t0.elapsed();
+        let fin = pubber.await.unwrap();
+        let final_seq = ticks as u64 + 2;
+        println!("  [{case}] cut={cut:.2?} restored={restored:.2?} terminal_published={fin:.2?} final_seq={final_seq}");
+        let s1 = o1.await.unwrap();
+        println!(
+            "    subscribe-then-get: terminal={:?} via={} last={} samples={} seq_gaps={} liveliness={:?}",
+            s1.terminal_at, s1.terminal_via, s1.last, s1.samples, s1.seq_gaps, s1.liveliness
+        );
+        let s2 = o2.await.unwrap();
+        println!(
+            "    + liveliness repair: terminal={:?} via={} last={} samples={} seq_gaps={} repairs={} liveliness={:?}",
+            s2.terminal_at, s2.terminal_via, s2.last, s2.samples, s2.seq_gaps, s2.repairs, s2.liveliness
+        );
+        let s3 = o3.await.unwrap();
+        println!(
+            "    streaming query: terminal={:?} last={} frames={} seq_gaps={} gap_before={} queries={} ends={:?}",
+            s3.terminal_at, s3.last, s3.frames, s3.seq_gaps, s3.gap_before_flags, s3.queries, summarize_ends(&s3.ends)
+        );
+        for s in [g, direct, c1, c2, c3] {
+            s.close().await.unwrap();
+        }
+    }
+}
+
+/// Slow streaming-query observer: Core publishes 2000 snapshots back-to-back while the observer
+/// takes ~1 ms per frame. Probes a Get on the same caller session meanwhile.
+async fn s_slow_observe() {
+    println!("== slow-observe: streaming query, 2000 snapshots back-to-back, observer ~1 ms/frame");
+    for (name, h, cap) in [
+        ("reply=default-fifo(256) watcher=8", H::Default, 8usize),
+        ("reply=fifo(32) watcher=8", H::Fifo(32), 8),
+        ("reply=ring(32) watcher=8", H::Ring(32), 8),
+        ("reply=default-fifo(256) watcher=4096", H::Default, 4096),
+    ] {
+        let (g, c, core, _) = setup(Duration::ZERO).await;
+        let op = op_of(&start(&c, &req(Uuid::new_v4(), serde_json::json!({}))).await);
+        core.advance(op, State::Running, "work").await;
+        let t0 = Instant::now();
+        let obs = tokio::spawn(stream_observer(
+            c.clone(),
+            op,
+            h,
+            format!(";cap={cap};lease_ms=30000"),
+            Duration::from_millis(1),
+            t0,
+            Duration::from_secs(30),
+        ));
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let probe = {
+            let c = c.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                let t = Instant::now();
+                (get(&c, op).await.is_some(), t.elapsed())
+            })
+        };
+        let t = Instant::now();
+        for i in 0..2000 {
+            let st = if i == 1999 { State::Succeeded } else { State::Running };
+            core.advance(op, st, "step").await;
+        }
+        let pub_time = t.elapsed();
+        let s = obs.await.unwrap();
+        let (probe_ok, probe_lat) = probe.await.unwrap();
+        let ends = summarize_ends(&s.ends);
+        println!(
+            "  {name}: publish_2000={pub_time:.2?} terminal={:?} last={} frames={} seq_gaps={} gap_before={} queries={} ends={ends:?} get_probe_ok={probe_ok} get_probe_latency={probe_lat:.2?}",
+            s.terminal_at, s.last, s.frames, s.seq_gaps, s.gap_before_flags, s.queries
+        );
+        g.close().await.unwrap();
+        c.close().await.unwrap();
+    }
+}
+
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
     let arg = std::env::args().nth(1).unwrap_or_else(|| "all".into());
@@ -651,6 +1077,15 @@ async fn main() {
     }
     if all || arg == "reconnect" {
         s_reconnect().await;
+    }
+    if all || arg == "executor" {
+        s_executor().await;
+    }
+    if all || arg == "reconnect-observe" {
+        s_reconnect_observe().await;
+    }
+    if all || arg == "slow-observe" {
+        s_slow_observe().await;
     }
     if all || arg == "advanced" {
         s_advanced().await;

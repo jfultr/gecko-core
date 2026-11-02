@@ -79,6 +79,19 @@ The six packages map to the existing areas and ST1–ST5; they do not create a s
 
 The first-experiment scope and checks are accepted at the model level. Before implementation is considered validated, concrete types, Zenoh mapping, and contract tests must demonstrate the stated behavior. Observe is in `0.1.0`; Cancel is in `0.2.0`. Broader integration, persistence, and security gates remain open independently.
 
+### 2.3. Choices raised by the Zenoh spike (ROB-60)
+
+The [ROB-60 spike report](../research/zenoh-spike/REPORT.md) measured a Zenoh `1.10.2` mapping on one host. Its evidence and recommendations are proposals for [ROB-61](https://linear.app/hakalem-echo-team/issue/ROB-61/decision010-resolve-new-api-and-executor-evidence-choices-from-the); none is accepted until Farhat decides. Everything else in the report is implementation detail under the accepted rules.
+
+| ID | Question | Options | Spike recommendation and evidence | Status |
+|---|---|---|---|---|
+| Z1 | Observe mapping for `0.1.0`; fixes the observation address returned by Start | (a) subscribe-then-Get on a snapshot key plus liveliness-triggered Get repair; (b) streaming query with Core-side atomic attach and `after=<sequence>` resume; (c) both | (b), keep (a) as a measured fallback. Both have 0 missed terminals in attach races. Across link cuts (b) needs no extra signal, while plain subscribe-then-Get never learned a terminal published during the outage. (b) bounds a slow observer at Core and ends it with `lagged` instead of blocking the caller session. Report §Observe | Open |
+| Z2 | zenoh-ext Advanced pub/sub (`unstable` feature) before `1.0.0` | Allow for `0.1.0`; defer | Defer: the transport cache holds per-publisher samples rather than Operation `sequence`, and the model forbids relying on transport history | Open |
+| Z3 | Channel for typed errors | Typed `Ok` replies; Zenoh `reply_err` | Typed `Ok` replies for every Operation outcome, including invalid input. The client treats every Zenoh `Err` reply, zero replies, or a closed stream as "no answer" and retries safely. Zenoh's own `Timeout` is an `Err` with `zenoh/string` locally and default encoding when routed | Open |
+| Z4 | Number spelling in retry comparison | Spelling-sensitive (`1` ≠ `1.0`); canonicalize numbers | Spelling-sensitive for `0.1.0`, documented in the request schema; revisit with the typed parameter schema | Open |
+| Z5 | `not_found` versus `unauthorized` on Get and Observe | Indistinguishable (anti-enumeration); distinct as P3 says for invalid input versus unauthorized | Indistinguishable for operations the caller may not see. Invalid input stays a distinct typed error. Needs Farhat because it refines P3 | Open |
+| Z6 | Executor event identity (P5 / ST3) | (`token`, contiguous `event_seq`) assigned by the executor; Core-assigned ids; content hashing | (`token`, `event_seq`). Same identity and content is a duplicate without a new snapshot. Same identity with other content is stale. A skip is out of order. Another terminal outcome conflicts, and the same terminal outcome changes nothing. Report §Executor | Open |
+
 ## 3. Current status
 
 - The module boundary is accepted.
@@ -89,6 +102,7 @@ The first-experiment scope and checks are accepted at the model level. Before im
 - Repeated and late Cancel semantics are accepted at the model level; response schemas, concurrency, persistence, and reconsideration after rejection remain open.
 - Core authority over state validation, recording, and snapshot numbering is accepted at the model level; executor notification and arbitration details remain open.
 - The first-experiment direction, including Observe and minimal Zenoh, and the working release order are accepted at the model level. A Rust build and test harness skeleton exists (ROB-59, November 2, 2026); Start, Get, Observe, the Zenoh adapter, and contract tests are not implemented.
+- November 2, 2026: the ROB-60 Zenoh `1.10.2` spike measured Start/Get/Observe mappings, executor event arbitration, reconnection, and slow observers on one host ([report](../research/zenoh-spike/REPORT.md)). Its consequential choices are Z1–Z6 in [§2.3](#23-choices-raised-by-the-zenoh-spike-rob-60), awaiting ROB-61. No accepted rule changed.
 - Exact schemas, SDK choices, transport guarantees, and later release contents remain subject to experiments.
 - November 1, 2026: common design migrated from Mesh / App into Operation; consumer requirements remain in domain documents. Historical links above record provenance, not contract authority.
 
