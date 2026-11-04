@@ -16,6 +16,10 @@ No role is active by default. Only an explicit user assignment or skill invocati
 
 Roles allow supporting work outside their primary area and do not start a backlog run on assignment. See [activation instructions](docs/agent-workflows.md) when setting up an agent.
 
+## Learning articles
+
+Explanatory articles come in two kinds. Private drafts live in the git-ignored `.articles/` and follow [gecko-article-private](.agents/skills/gecko-article-private/SKILL.md). Public articles live in `articles/`, are derived from private ones, and follow [gecko-article-public](.agents/skills/gecko-article-public/SKILL.md). Both use `tools/articles/articles.py` (check, index, find). These skills are not roles; run `make hooks` once per clone to enable the pre-commit check.
+
 ## Reusable tools
 
 Notice repeated manual work and useful temporary scripts. Reuse existing tools; retain small, verified improvements within the task and propose larger additions. Give retained tools a reproducible invocation and a link from the relevant skill or module so another session can use them. Briefly report what was saved or proposed when useful.
@@ -24,4 +28,4 @@ Notice repeated manual work and useful temporary scripts. Reuse existing tools; 
 
 On the Windows development host, run development, Git, dependency installation, builds, and tests through WSL, in the checkout layout the user selected for the session (Windows checkout or WSL checkout). Read [environment details](docs/development-environment.md) before running commands on that host. Do not silently switch development to Windows if WSL is unavailable.
 
-For documentation changes, run `python3 docs/check_links.py` from the repository root. Use the affected module's checks for code changes; for Rust code, run `make check` from the repository root (formatting, build, Clippy, tests, smoke example, and the link check).
+For documentation changes, run `python3 docs/check_links.py` from the repository root. Use the affected module's checks for code changes; for Rust code, run `make check` from the repository root (formatting, build, Clippy, tests, smoke example, the link check, and the article check).

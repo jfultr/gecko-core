@@ -1,0 +1,10 @@
+#!/bin/sh
+# Check public articles when a commit touches them. Enable with: make hooks
+root=$(git rev-parse --show-toplevel) || exit 1
+if git diff --cached --name-only | grep -q '^articles/'; then
+    python3 "$root/tools/articles/articles.py" check || exit 1
+fi
+if git diff --cached --name-only | grep -q '^\.articles/'; then
+    echo "pre-commit: .articles/ is private and must not be committed" >&2
+    exit 1
+fi

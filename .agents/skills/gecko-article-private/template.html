@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{Title, 2-4 words}}</title>
+<meta name="description" content="{{One sentence: what the reader learns}}">
+<meta name="gecko:visibility" content="private">
+<meta name="gecko:topic" content="{{area/subject}}">
+<meta name="gecko:keywords" content="{{comma, separated, terms}}">
+<meta name="gecko:date" content="{{YYYY-MM-DD}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --ink: #1b1e24;
+    --muted: #5a6170;
+    --line: #d8d5cd;
+    --accent: #2563a6;
+    --accent-soft: #e4edf8;
+    --ok: #237a4b;
+    --ok-soft: #e3f2e9;
+    --warn: #9a5b00;
+    --warn-soft: #fcf0da;
+    --bad: #b3261e;
+    --bad-soft: #fbe5e2;
+    --code: #efede7;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111318;
+      --surface: #181b22;
+      --ink: #e7e9ee;
+      --muted: #9ba3b3;
+      --line: #2b303a;
+      --accent: #7db7ea;
+      --accent-soft: #1a2a3d;
+      --ok: #6fcb93;
+      --ok-soft: #14291d;
+      --warn: #f0b35c;
+      --warn-soft: #2e2411;
+      --bad: #ff8c80;
+      --bad-soft: #331b19;
+      --code: #0c0e12;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111318;
+    --surface: #181b22;
+    --ink: #e7e9ee;
+    --muted: #9ba3b3;
+    --line: #2b303a;
+    --accent: #7db7ea;
+    --accent-soft: #1a2a3d;
+    --ok: #6fcb93;
+    --ok-soft: #14291d;
+    --warn: #f0b35c;
+    --warn-soft: #2e2411;
+    --bad: #ff8c80;
+    --bad-soft: #331b19;
+    --code: #0c0e12;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 17px/1.65 Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow-wrap: break-word;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+  h1 { font-size: clamp(1.9rem, 4.6vw, 2.6rem); line-height: 1.15; letter-spacing: -0.02em; margin: 0.25em 0 0.4em; }
+  h2 { font-size: 1.45rem; letter-spacing: -0.01em; margin: 2.4em 0 0.6em; scroll-margin-top: 64px; }
+  h3 { font-size: 1.08rem; margin: 1.6em 0 0.4em; }
+  p { margin: 0.7em 0; }
+  ul, ol { padding-left: 1.3em; }
+  li { margin: 0.35em 0; }
+  a { color: var(--accent); }
+  code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86em; }
+  code { background: var(--code); padding: 0.1em 0.35em; border-radius: 5px; overflow-wrap: anywhere; }
+  abbr[title] { text-decoration: underline dotted var(--accent); text-underline-offset: 3px; cursor: help; }
+
+  .kicker { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 2.4rem 0 0; }
+  .lede { font-size: 1.12rem; color: var(--muted); margin: 0.5rem 0 1rem; }
+  .badge { display: inline-block; font-size: 0.85rem; padding: 0.25em 0.75em; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); }
+
+  .toc {
+    position: sticky; top: 0; z-index: 5;
+    margin: 1.4rem -16px 0; padding: 10px 16px;
+    background: var(--bg);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .toc ol { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+  .toc a { color: var(--muted); text-decoration: none; }
+  .toc a:hover, .toc a:focus { color: var(--accent); text-decoration: underline; }
+  @media (max-width: 600px) {
+    .toc ol { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; }
+  }
+
+  .tldr {
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 12px; padding: 16px 18px; margin: 1.4em 0;
+  }
+  .tldr .label, .callout .label { font-weight: 700; display: block; margin-bottom: 0.15em; }
+  .callout {
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 12px; padding: 12px 16px; margin: 1.2em 0;
+  }
+  .callout.tip { border-left-color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+  .callout.risk { border-left-color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+  .callout.ok { border-left-color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+  .callout p:first-child { margin-top: 0.2em; }
+  .callout p:last-child, .callout ul:last-child { margin-bottom: 0.2em; }
+
+  figure {
+    margin: 1.6em 0; padding: 14px 10px 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    overflow-x: auto;
+  }
+  figure svg { display: block; width: 100%; min-width: 560px; height: auto; }
+  figcaption { font-size: 0.9rem; color: var(--muted); margin: 0.6em 6px 0; }
+
+  .tablewrap { overflow-x: auto; margin: 1em 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; line-height: 1.5; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.85rem; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 600; }
+  td:first-child:not(:last-child) { white-space: normal; }
+
+  dl.gloss { margin: 0.5em 0; }
+  dl.gloss dt { font-weight: 700; margin-top: 0.9em; }
+  dl.gloss dd { margin: 0.1em 0 0 0; color: var(--ink); }
+
+  .final { margin-top: 2.4em; font-size: 0.88rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 1em; }
+
+  /* SVG styling (uses the same theme variables) */
+  svg text { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; fill: var(--ink); font-size: 13px; }
+  svg .sm { font-size: 11.5px; fill: var(--muted); }
+  svg .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: var(--muted); }
+  svg .b { font-weight: 700; }
+  svg .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+  svg .acc { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  svg .frame { fill: none; stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 6 5; }
+  svg .ln { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+  svg .ln-acc { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+  svg .dash { stroke-dasharray: 5 4; }
+  svg .mark { stroke: var(--bad); stroke-width: 1.6; stroke-dasharray: 4 3; fill: none; }
+  svg .mark-ok { stroke: var(--ok); stroke-width: 1.6; stroke-dasharray: 4 3; fill: none; }
+  svg .ah { fill: var(--muted); }
+  svg .bar-ok { fill: var(--ok); }
+  svg .bar-warn { fill: var(--warn); }
+  svg .bar-bad { fill: var(--bad); }
+  svg .axis { stroke: var(--line); stroke-width: 1.2; }
+  svg .pat-bg { fill: var(--bad-soft); }
+  svg .pat-line { stroke: var(--bad); stroke-width: 3; }
+  svg .hatch-box { stroke: var(--bad); stroke-width: 1; }
+  svg .warn-box { stroke: var(--warn); }
+  svg .dot-bad { fill: var(--bad); }
+  svg .dot-ok { fill: var(--ok); }
+  svg .cell-acc { fill: var(--accent); }
+  svg .cell-bad { fill: var(--bad); opacity: 0.85; }
+  svg .cell-ok { fill: var(--ok); }
+  svg .txt-on { fill: var(--bg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="kicker">{{Context line: area · kind · date}}</p>
+  <h1>{{Title as a statement of the takeaway}}</h1>
+  <p class="lede">{{One-paragraph promise: question, scope, answer}}</p>
+  <span class="badge">≈ {{N}} min read</span>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#why">Why</a></li>
+    <li><a href="#result">Result</a></li>
+    <li><a href="#glossary">Glossary</a></li>
+  </ol>
+</nav>
+
+<section class="tldr" aria-label="Summary">
+  <span class="label">Summary</span>
+  <p>{{Answer first: the main conclusion in two or three sentences.}}</p>
+</section>
+
+<h2 id="why">{{Why this matters}}</h2>
+<p>{{Explain the problem from zero; define terms on first use with &lt;abbr title="..."&gt;.}}</p>
+
+<h2 id="result">{{What was found}}</h2>
+<p>{{Claims backed by evidence; figures use inline SVG.}}</p>
+
+<figure>
+  <svg viewBox="0 0 680 120" role="img" aria-labelledby="f1t">
+    <title id="f1t">{{What the figure shows}}</title>
+    <rect class="box" x="20" y="30" width="140" height="56" rx="10"/>
+    <text class="b" x="90" y="63" text-anchor="middle">{{Label}}</text>
+  </svg>
+  <figcaption>{{One-sentence takeaway of the figure.}}</figcaption>
+</figure>
+
+<h2 id="glossary">Glossary</h2>
+<dl class="gloss">
+  <dt>{{Term}}</dt>
+  <dd>{{Plain-language definition.}}</dd>
+</dl>
+
+<p class="final">Sources: {{what the facts were taken from}}</p>
+
+</div>
+</body>
+</html>

@@ -1,1 +1,3 @@
 /target/
+/.articles/
+__pycache__/

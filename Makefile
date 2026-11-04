@@ -4,7 +4,7 @@
 
 CARGO ?= cargo
 
-.PHONY: all build test fmt-check clippy smoke docs-check check
+.PHONY: all build test fmt-check clippy smoke docs-check articles-check hooks check
 
 all: check
 
@@ -27,4 +27,10 @@ smoke:
 docs-check:
 	python3 docs/check_links.py
 
-check: fmt-check build clippy test smoke docs-check
+articles-check:
+	python3 tools/articles/articles.py check
+
+hooks:
+	git config core.hooksPath .githooks
+
+check: fmt-check build clippy test smoke docs-check articles-check

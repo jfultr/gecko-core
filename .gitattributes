@@ -1,0 +1,3 @@
+# Keep learning articles and their template out of GitHub's language statistics.
+articles/** linguist-documentation
+.agents/skills/*/template.html linguist-documentation
