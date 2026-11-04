@@ -1,6 +1,6 @@
-# ROB-60 spike: Zenoh mapping, wire types and observation races
+# GKO-60 spike: Zenoh mapping, wire types and observation races
 
-Status: research result for ROB-60, November 2, 2026, revised after the [first review](https://linear.app/hakalem-echo-team/issue/ROB-60/research010-spike-zenoh-mapping-wire-types-and-observation). Measured on one host. Nothing here changes accepted rules; the consequential choices are registered as Z1–Z6 in [decision status §2.3](../../spec/status.md#23-choices-raised-by-the-zenoh-spike-rob-60). Code: this directory (`docs-modules/operation/research/zenoh-spike/`).
+Status: research result for GKO-60, November 2, 2026, revised after the [first review](https://linear.app/hakalem-echo-team/issue/GKO-60/research010-spike-zenoh-mapping-wire-types-and-observation). Measured on one host. Nothing here changes accepted rules; the consequential choices are registered as Z1–Z6 in [decision status §2.3](../../spec/status.md#23-choices-raised-by-the-zenoh-spike-gko-60). Code: this directory (`docs-modules/operation/research/zenoh-spike/`).
 
 ## Pinned setup
 
@@ -132,7 +132,7 @@ Snapshot identity on the wire is (`operation.id`, `sequence`). Redelivery keeps 
 
 ## Mapping to the model (spike wire types against model §4–§5)
 
-The spike types are a subset of the model so that ROB-61 does not inherit an accidental shape:
+The spike types are a subset of the model so that GKO-61 does not inherit an accidental shape:
 
 | Model | Spike | Gap |
 |---|---|---|
@@ -157,7 +157,7 @@ The spike types are a subset of the model so that ROB-61 does not inherit an acc
 
 ## Consequential choices for Farhat
 
-These are registered as [Z1–Z6](../../spec/status.md#23-choices-raised-by-the-zenoh-spike-rob-60). Everything else here is implementation detail under accepted rules.
+These are registered as [Z1–Z6](../../spec/status.md#23-choices-raised-by-the-zenoh-spike-gko-60). Everything else here is implementation detail under accepted rules.
 
 1. **Z1:** Observe mapping. Streaming query (recommended), subscribe-then-Get with liveliness repair, or both. This fixes the observation address returned by Start.
 2. **Z2:** `unstable` zenoh-ext Advanced pub/sub before 1.0.0. Recommendation: not for 0.1.0.

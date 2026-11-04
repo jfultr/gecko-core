@@ -1,4 +1,4 @@
-//! Zenoh 1.10.2 spike for Operation 0.1.0 (ROB-60). Run: `cargo run --release -- <scenario>|all`.
+//! Zenoh 1.10.2 spike for Operation 0.1.0 (GKO-60). Run: `cargo run --release -- <scenario>|all`.
 //!
 //! Topology: one "gecko" session in peer mode listening on tcp/127.0.0.1:<free port>, one caller
 //! session in client mode connecting to it (directly or through an in-process TCP proxy that can be
