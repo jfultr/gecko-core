@@ -32,7 +32,7 @@ All runs were on a single host over loopback. Ranges cover the three checked-in 
 
 | # | Case | Observed |
 |---|---|---|
-| A | Start with no queryable reachable | Zero replies; the reply channel closes in 0.4–0.5 ms, with no error value (3/3). A Get during a link outage also gets zero replies, in about 1 ms. |
+| A | Start with no queryable reachable | Zero replies; the reply channel closes in 0.38–0.50 ms, with no error value (3/3). A Get during a link outage also gets zero replies, in about 1 ms. |
 | B | Malformed payload; unknown type | Both come back as `Ok` replies carrying typed `Rejected{invalid_input}` or `Rejected{unknown_operation_type}` (3/3). `reply_err` is no longer used. |
 | C | Query timeout | `Err(ReplyError)` with payload `"Timeout"` and encoding `zenoh/string` after 300 ms (3/3). A reply the queryable sends after the caller's timeout still returns `Ok` on the server. A retry with the same `request_id` returned the same operation (`retried: true`). |
 | D | Normalization | Reordered object keys plus a different `trace` gave the same operation. Changing `1` to `1.0` gave `request_id_conflict` (3/3). Keys are now sorted explicitly ([`canonical_json`](../../../../spikes/zenoh-spike/src/wire.rs)); unit tests cover nested reordering, an insertion-ordered map, arrays, escaping and `trace` exclusion. |
@@ -61,7 +61,7 @@ Event identity is (`token`, `event_seq`). Core hands out the execution token. Th
 | unknown token | `UnknownToken` | none |
 | 32 concurrent copies of one ack | 1 `Applied`, 31 `Duplicate` | one |
 | `succeeded` and `failed` racing on one `event_seq` | One `Applied`; the other `Stale`. The winner is whichever takes the Core lock first. | one |
-| lost handoff, then a late ack with the same token | `pending` → `unknown` (seq 2) → `running` (seq 3) | two |
+| lost handoff, then a late ack with the same token | `pending` → `unknown` (seq 2) → `running` (seq 3); the harness prints only the sequences (`Applied` 2, then `Applied` 3) and the final `running`, not the `unknown` state itself | two |
 
 Snapshot identity on the wire is (`operation.id`, `sequence`). Redelivery keeps both values; observers deduplicate by `sequence`.
 
@@ -81,7 +81,7 @@ Snapshot identity on the wire is (`operation.id`, `sequence`). Redelivery keeps 
 |---|---|---|
 | S1 | subscriber, `RingChannel(32)` | 35–67 received, 3–4 `sequence` gaps, terminal received. A Get on the same session answered in 0.6–0.7 ms. |
 | S2 | subscriber, `FifoChannel(32)` | All 2000 received with no gaps, but a concurrent Get on the same caller session timed out after 2 s. |
-| O1 | streaming query, default reply handler (FIFO 256), Core watcher cap 8 | First stream sent 10–32 frames, then `End{lagged}` at 0.22–0.27 s. The re-issue with `after=<last>` returned the terminal snapshot (seq 2002) with `gap_before`. A Get answered in 0.6–0.8 ms. |
+| O1 | streaming query, default reply handler (FIFO 256), Core watcher cap 8 | First stream sent 11–33 frames, then `End{lagged}` at 0.22–0.27 s. The re-issue with `after=<last>` returned the terminal snapshot (seq 2002) with `gap_before`. A Get answered in 0.6–0.8 ms. |
 | O2 | streaming query, `FifoChannel(32)`, watcher cap 8 | Same as O1: `lagged`, one re-issue, terminal. Get answered in 0.7–0.85 ms. |
 | O3 | streaming query, `RingChannel(32)`, watcher cap 8 | 3 frames. The `End` frames were dropped on the caller side, so both streams closed without `End`. The terminal was still recognized from the snapshot `state`. |
 | O4 | streaming query, default reply handler, watcher cap 4096 | All 2001 frames, no lag, terminal at about 4.8 s. A concurrent Get on the same session timed out after 2 s, as in S2. |
