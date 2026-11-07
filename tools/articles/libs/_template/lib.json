@@ -1,0 +1,16 @@
+{
+  "name": "REPLACE-with-folder-name",
+  "title": "Short name",
+  "purpose": "One sentence: what the reader of an article gets from this library.",
+  "npm": "package-name",
+  "version": "x.y.z",
+  "license": "SPDX id, e.g. MIT",
+  "variants": {
+    "full": "what it contains and the approximate size per article",
+    "min": "the smallest useful subset (the only kind public articles may use)"
+  },
+  "private_variant": "full",
+  "public_variant": "min",
+  "viewer": false,
+  "marker": "<!-- gecko:lib REPLACE -->"
+}

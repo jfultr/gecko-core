@@ -1,0 +1,16 @@
+{
+  "name": "monaco",
+  "title": "Monaco code viewer",
+  "purpose": "Show code blocks as read-only Monaco editors (line numbers, syntax highlighting, theme-aware). Markup: <pre><code data-lang=\"rust\">.",
+  "npm": "monaco-editor",
+  "version": "0.57.0",
+  "license": "MIT",
+  "variants": {
+    "full": "standard editor features, languages rust, shell, ini, python, cpp, javascript, typescript, json, yaml, markdown (about 4.7 MB per article)",
+    "min": "drops find, quick-open, reference search and diff; languages rust, shell, ini, python, cpp (about 3.4 MB per article)"
+  },
+  "private_variant": "full",
+  "public_variant": "min",
+  "viewer": true,
+  "marker": "<!-- gecko:lib monaco -->"
+}

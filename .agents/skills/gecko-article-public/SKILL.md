@@ -12,7 +12,7 @@ Publishing is outward-facing: before committing or pushing, show the user the re
 ## Workflow
 
 1. Pick the private source in `.articles/`. It must pass `python3 tools/articles/articles.py check --private`. Search `python3 tools/articles/articles.py find <terms>` for overlap with existing public articles; link to them instead of repeating.
-2. Copy to `articles/<same-name>.html`. Set `gecko:visibility` to `public` and add `<meta name="gecko:source" content="<private-file-name>.html">`.
+2. Copy to `articles/<same-name>.html`. For an article with libraries, copy the private source `.articlesdev/<name>.html` to `articles/src/<name>.html` instead and build the final file with `bundle --public` (see Script security review). Set `gecko:visibility` to `public` and add `<meta name="gecko:source" content="<private-file-name>.html">`.
 3. **Reveal hidden context** (below), then trim to the size limits.
 4. Add the navigation link back to `index.html` (below).
 5. Regenerate the index: `python3 tools/articles/articles.py index --write`.
@@ -23,20 +23,40 @@ Publishing is outward-facing: before committing or pushing, show the user the re
 
 Same file naming, metadata, section order, SVG accessibility, and stack as the private skill, plus:
 
-- `gecko:visibility` = `public`; `gecko:source` present.
+- `gecko:visibility` = `public`; `gecko:source` present. `gecko:kind` is kept from the private article (`interactive` needs the script review below).
 - Required blocks: `span.badge` reading time, `dl.gloss` glossary, `p.final` sources, a `<a href="index.html">` back link in the header.
 - Title is a stable name (2-4 words); `description` is meaningful on its own in search results.
-- External resources: only the two font hosts.
+- External resources: only the two font hosts. JavaScript only as described in the script security review below; the fixed offline policy [tools/articles/csp.txt](../../../tools/articles/csp.txt) is required in every public article.
+
+## Script security review
+
+A public article is code that strangers run in their browser, so scripts are reviewed, not just checked. The public rules are stricter than the private ones:
+
+- **Only reviewed code runs.** Allowed scripts are (a) library blocks inlined by `bundle` from the registry [tools/articles/libs](../../../tools/articles/libs/README.md), whose SHA-256 must equal the value recorded in `registry.json`; (b) the unmodified code viewer `tools/articles/code-viewer.js`; (c) a short author script, rejected if it uses `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `eval`, `new Function`, `import()`, `importScripts`, `postMessage`, `document.write`, cookies, storage, `window.open`, or navigation. Event-handler attributes and `javascript:` URLs are rejected, as is any `<script src>`.
+- **Minimal variants only.** Public bundles use the smallest recorded variant of each library (`min` for Monaco): `python3 tools/articles/articles.py bundle --public <source>`. Convert the private source to `articles/src/<name>.html` (the usual hidden-context rewrite), then bundle into `articles/<name>.html`. A variant that is not recorded in the registry cannot be bundled.
+- **Fixed offline policy.** The `Content-Security-Policy` meta equals `tools/articles/csp.txt`: no network from scripts, no frames, no forms.
+- **Readable without JavaScript.** Code is `<pre><code data-lang>`; a figure needs an SVG, table, or text fallback. Check by opening the file with JavaScript disabled.
+
+Do all of this before showing the article for approval:
+
+1. Run `python3 tools/articles/articles.py check` (it enforces the list above).
+2. Read the article source yourself and confirm there is no `<iframe>`, `<object>`, `<embed>`, or `<form>`, no remote URL except the two font hosts, and that every author script does what its comment says.
+3. **Recording or updating a library** (`python3 tools/articles/articles.py libs record <lib> <variant>`; the library and its `public_variant` come from its `lib.json` in the [catalog](../../../tools/articles/libs/README.md)) is a dependency review, in its own commit: check the pinned version and lockfile integrity in `tools/articles/libs`, the upstream license, and the resulting size; show the user the diff of `registry.json` and the sizes before committing. Never record a variant just to make a check pass.
+4. Changing `tools/articles/code-viewer.js` or `tools/articles/csp.txt` is a security change: no network APIs, no `innerHTML` with article-derived strings, no cookies or storage. Ask the user to review the diff.
+5. Run `python3 tools/articles/articles.py verify articles/<name>.html`: it opens the built file from `file://` in Chromium and Firefox and checks the console, that the only network requests are the two font hosts, and that the page works with JavaScript disabled. It must print `VERIFY OK`.
+
+The checker is mechanical and cannot judge what a library does; the review in steps 3 and 5 is what makes a library acceptable.
 
 ## Size limits (enforced by `articles.py check` and the pre-commit hook)
 
 | Limit | Value |
 |---|---|
-| File size | 100,000 bytes |
+| Article size without registered library blocks | 100,000 bytes |
+| File size with library blocks | 5,000,000 bytes |
 | Words of prose | 3,500 |
 | Reading time | 15 min at 200 words per minute |
 
-If an article is over, split it into a series of articles with `-2` suffixes (each self-contained, linking forward and back) instead of raising limits.
+A public article with Monaco is about 3.4 MB and is committed as a built file, so add libraries only where they earn it. If an article is over, split it into a series of articles with `-2` suffixes (each self-contained, linking forward and back) instead of raising limits.
 
 ## Reveal hidden context
 

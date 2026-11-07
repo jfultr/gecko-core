@@ -1,3 +1,6 @@
 /target/
 /.articles/
+/.articlesdev/
 __pycache__/
+/tools/articles/libs/node_modules/
+/tools/articles/libs/dist/

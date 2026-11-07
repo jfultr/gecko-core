@@ -1,3 +1,5 @@
 # Keep learning articles and their template out of GitHub's language statistics.
 articles/** linguist-documentation
 .agents/skills/*/template.html linguist-documentation
+# Keep helper tooling (article checker, library recipes, viewer snippet) out of the language statistics.
+tools/** linguist-vendored

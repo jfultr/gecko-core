@@ -1,0 +1,7 @@
+{
+  "monaco": {
+    "npm": "monaco-editor",
+    "version": "0.57.0",
+    "variants": {}
+  }
+}

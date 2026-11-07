@@ -1,0 +1,13 @@
+{
+  "name": "gecko-article-libs",
+  "private": true,
+  "description": "Pinned build inputs for the single-file libraries inlined into Gecko articles. See README.md.",
+  "type": "module",
+  "dependencies": {
+    "esbuild": "0.25.10",
+    "monaco-editor": "0.57.0"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}
