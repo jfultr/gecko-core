@@ -6,14 +6,20 @@ Rust crate of the Gecko Operation module. The module contract and decisions are 
 
 Version `0.1.0-dev` (matches `docs-modules/operation/VERSION`).
 
-This crate contains only the harness skeleton:
+Implemented (GKO-62, OP-A4):
 
+- transport-neutral Start, Get, and Observe inputs and typed outcomes (accepted, rejected, unavailable, invalid input, error) and the full report types (`api`, `report`);
+- UUIDv4 `RequestId` and `OperationId`, and a `CallerContext` that adapters build and that cannot be deserialized from a payload (`identity`);
+- request validation against a `Catalog`, normalized `RequestFingerprint`, subject-scoped `RetryKey`, and `RetryClass` (`request`, `value`);
+- an authorization hook: `Guard` calls the `Authorizer` for every command, records the decision, and returns an `Authorized` proof that `auth::hand_off` requires; it fails closed on denial, unknown decision, or log failure, and the default policy is `DenyAll` (`auth`);
 - a provisional `Executor` trait, `ExecutionToken`, and `Handoff`;
-- behind the `test-support` feature, a controllable `TestExecutor` and fixtures.
+- behind the `test-support` feature, `TestExecutor`, fixtures, the test catalog (`test.echo`), and `PermitAllForTests`, the only permissive policy.
 
-Not implemented: Start, Get, Observe, state machine, snapshots, storage, Zenoh adapter.
+Not implemented: atomic acceptance and retry index (GKO-63), state machine, snapshots, storage, Zenoh adapter. The in-memory decision log is not durable audit.
 
-The crate has no dependencies. Core must stay independent of Zenoh and domain entities. The layout is provisional, not a contract.
+Dependencies: `serde` and `uuid` (`v4`); `serde_json` for tests only. Number comparison is spelling-sensitive (`1` differs from `1.0`), per decision Z4.
+
+Core must stay independent of Zenoh and domain entities. The layout is provisional, not a contract.
 
 ## Layout
 
@@ -23,9 +29,16 @@ crates/operations/
 ├── README.md
 ├── src/
 │   ├── lib.rs
+│   ├── api.rs
+│   ├── auth.rs
 │   ├── executor.rs
+│   ├── identity.rs
+│   ├── report.rs
+│   ├── request.rs
+│   ├── value.rs
 │   └── testing.rs
 ├── tests/
+│   ├── contracts.rs
 │   └── harness.rs
 └── examples/
     └── smoke.rs
