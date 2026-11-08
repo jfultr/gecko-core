@@ -4,10 +4,13 @@
 //! Observe inputs and outcomes, full reports), UUIDv4 identities, request
 //! validation and retry comparison, the authorization hook with decision
 //! records, and the provisional executor contract. It has no dependency on
-//! Zenoh, Probe, App, or other domain entities. Executor handoff, event
-//! arbitration, and Core-numbered snapshots are in memory. Get, Observe,
-//! durable storage, and the transport adapter are not implemented yet. The
-//! contract is owned by `docs-modules/operation/spec/model.md`.
+//! Zenoh, Probe, App, or other domain entities.
+//!
+//! Implemented in process: Start, Get, and Observe, with executor handoff,
+//! event arbitration, and Core-numbered snapshots. Storage is in memory only;
+//! there is no durable storage. The Zenoh transport adapter lives in the
+//! separate `operations-zenoh` crate. The contract is owned by
+//! `docs-modules/operation/spec/model.md`.
 
 /// Atomic acceptance and safe retry of Start.
 pub mod acceptance;

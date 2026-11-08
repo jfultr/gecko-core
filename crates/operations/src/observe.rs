@@ -19,7 +19,8 @@
 //! Slow observers: each observer has a bounded buffer and Core never waits for
 //! one. A full buffer ends that stream with [`End::Lagged`]; the observer
 //! resumes with its last `sequence`. Dropping an [`Observation`] only removes
-//! the observer. A terminal snapshot ends its streams with [`End::Terminal`],
+//! the observer; Core removes it at the next attach or publication of that
+//! execution. A terminal snapshot ends its streams with [`End::Terminal`],
 //! and attaching to a terminal execution yields no stream.
 //!
 //! Visibility (Z5): an execution the caller does not own, a nonexistent one,
@@ -31,6 +32,7 @@
 //! survive a slow storage or many observers.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, mpsc};
 use std::time::Duration;
@@ -76,6 +78,15 @@ pub enum Poll {
 pub struct Observation {
     receiver: Receiver<Report>,
     end: Arc<OnceLock<End>>,
+    closed: Arc<AtomicBool>,
+}
+
+impl Drop for Observation {
+    fn drop(&mut self) {
+        // Marks the watcher dead so that the next attach or publication of its
+        // execution removes it. A `SyncSender` has no cheap liveness check.
+        self.closed.store(true, Ordering::SeqCst);
+    }
 }
 
 impl Observation {
@@ -106,6 +117,7 @@ impl Observation {
 struct Watcher {
     sender: SyncSender<Report>,
     end: Arc<OnceLock<End>>,
+    closed: Arc<AtomicBool>,
 }
 
 /// Registered observers by execution. Only reachable through the hub lock.
@@ -113,14 +125,38 @@ struct Watcher {
 pub(crate) struct Watchers(HashMap<OperationId, Vec<Watcher>>);
 
 impl Watchers {
+    /// Removes the observers of `id` whose [`Observation`] was dropped, and the
+    /// key when none is left.
+    fn prune_closed(&mut self, id: &OperationId) {
+        if let Some(list) = self.0.get_mut(id) {
+            list.retain(|w| !w.closed.load(Ordering::SeqCst));
+            if list.is_empty() {
+                self.0.remove(id);
+            }
+        }
+    }
+
     fn attach(&mut self, id: OperationId, capacity: usize) -> Observation {
+        self.prune_closed(&id);
         let (sender, receiver) = mpsc::sync_channel(capacity.max(1));
         let end = Arc::new(OnceLock::new());
+        let closed = Arc::new(AtomicBool::new(false));
         self.0.entry(id).or_default().push(Watcher {
             sender,
             end: Arc::clone(&end),
+            closed: Arc::clone(&closed),
         });
-        Observation { receiver, end }
+        Observation {
+            receiver,
+            end,
+            closed,
+        }
+    }
+
+    /// Number of registered observers of `id`, including dropped ones not yet pruned.
+    #[cfg(feature = "test-support")]
+    fn count(&self, id: &OperationId) -> usize {
+        self.0.get(id).map_or(0, Vec::len)
     }
 
     /// Sends `snapshot` to every observer of `id` without waiting for any.
@@ -197,6 +233,17 @@ where
     pub fn with_observer_capacity(mut self, capacity: usize) -> Self {
         self.observer_capacity = capacity.max(1);
         self
+    }
+
+    /// Number of observers registered for execution `id`, including dropped ones
+    /// that no attach or publication has pruned yet.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the observer lock is poisoned.
+    #[cfg(feature = "test-support")]
+    pub fn observer_count(&self, id: &OperationId) -> usize {
+        self.hub.lock().expect("observer lock").count(id)
     }
 
     /// The execution, if `caller` may see it and its report is retained.

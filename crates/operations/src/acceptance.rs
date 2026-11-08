@@ -296,7 +296,10 @@ impl StartOutcome {
 pub enum DispatchError {
     /// The authorization proof was not issued for Start; nothing reached the executor.
     WrongCommand,
-    /// The execution record could not be read, or is missing. Nothing reached the
+    /// No execution with this id exists. Nothing reached the executor, and no
+    /// record was changed, because there is no record to mark.
+    UnknownOperation,
+    /// The execution record could not be read. Nothing reached the
     /// executor. Core tried to record `failed` best-effort; if that also failed,
     /// the execution stays `pending`.
     Unavailable,
@@ -450,8 +453,9 @@ where
     ///
     /// # Errors
     ///
-    /// [`DispatchError`]: `Unavailable` when the record was not readable,
-    /// `Rejected` when the transition rules refuse the result, `Unrecorded`
+    /// [`DispatchError`]: `UnknownOperation` when no record exists, `Unavailable`
+    /// when the record was not readable, `Rejected` when the transition rules
+    /// refuse the result, `Unrecorded`
     /// when no result could be stored, and `WrongCommand` when the proof is
     /// not for Start.
     pub fn dispatch(
@@ -462,7 +466,8 @@ where
         let id = dispatch.operation_id();
         let accepted = match self.storage.operation(&id) {
             Ok(Some(accepted)) => accepted,
-            _ => {
+            Ok(None) => return Err(DispatchError::UnknownOperation),
+            Err(_) => {
                 let _ = self.mutate(&id, |op, now| {
                     apply_dispatch_failure(op, "the execution record could not be read", now)
                 });
@@ -484,13 +489,15 @@ where
     ///
     /// # Errors
     ///
-    /// [`DispatchError::Unavailable`] when storage cannot apply the change, and
+    /// [`DispatchError::Unavailable`] when storage cannot apply the change,
+    /// [`DispatchError::UnknownOperation`] when no record exists, and
     /// [`DispatchError::Rejected`] when the execution is no longer `pending`.
     pub fn abandon(&self, dispatch: Dispatch, reason: &str) -> Result<Notified, DispatchError> {
         let (_proof, id) = dispatch.into_parts();
         self.mutate(&id, |op, now| apply_dispatch_failure(op, reason, now))
             .map_err(|rejection| match rejection {
                 NotifyRejection::Unavailable => DispatchError::Unavailable,
+                NotifyRejection::UnknownOperation => DispatchError::UnknownOperation,
                 other => DispatchError::Rejected(other),
             })
     }
@@ -518,6 +525,7 @@ where
                 }
                 Err(DispatchError::Unrecorded { handoff })
             }
+            Err(NotifyRejection::UnknownOperation) => Err(DispatchError::UnknownOperation),
             Err(rejection) => Err(DispatchError::Rejected(rejection)),
         }
     }
@@ -565,7 +573,7 @@ where
     ) -> Result<Notified, NotifyRejection> {
         let now = (self.clock)();
         let mut watchers = self.hub.lock().map_err(|_| NotifyRejection::Unavailable)?;
-        let mut result = Err(NotifyRejection::UnknownToken);
+        let mut result = Err(NotifyRejection::UnknownOperation);
         let mut published = None;
         let found = self
             .storage
@@ -582,7 +590,7 @@ where
         if found {
             result
         } else {
-            Err(NotifyRejection::UnknownToken)
+            Err(NotifyRejection::UnknownOperation)
         }
     }
 

@@ -4,7 +4,7 @@ An independent foundational Gecko module for starting and observing long-running
 
 Operation accepts or rejects a request, creates a distinct execution, publishes its progress and result, handles cancellation requests, and prevents duplicate execution after a lost response or a normal restart. The module has no knowledge of domain entities such as Probe, App, Block, or Line: domain executors integrate with it through a separate contract.
 
-Current version: [`0.1.0-dev`](VERSION). Only the Rust build and test harness skeleton exists; Start, Get, Observe, and the Zenoh adapter are not implemented. This is the version of the contract and first prototype under development, not a completed release.
+Current version: [`0.1.0-dev`](VERSION). Start, Get, and Observe are implemented in memory, and a minimal Zenoh adapter is in [`crates/operations-zenoh`](../../crates/operations-zenoh/README.md); both are on PR #3, in review. Durable storage, Cancel, and authenticated executor identity are not built. This is the version of the contract and first prototype under development, not a completed release.
 
 ## Contents
 
