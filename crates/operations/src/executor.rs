@@ -7,9 +7,9 @@
 //! task), and sync vs async shape are NOT decided yet. This module only fixes
 //! the shape needed to drive the test harness and is provisional.
 
-/// Opaque identity of one execution, assigned by the receiving runtime on acceptance.
+/// Opaque identity of one execution, assigned by Core on acceptance.
 ///
-/// The concrete format is decided later.
+/// Core generates tokens as random UUIDv4 text; the executor treats it as opaque.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExecutionToken(String);
 
@@ -17,6 +17,11 @@ impl ExecutionToken {
     /// Creates a token from its textual value.
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
+    }
+
+    /// Generates a new random token (UUIDv4 text).
+    pub fn generate() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
     }
 
     /// Returns the textual value of the token.

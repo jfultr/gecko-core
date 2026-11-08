@@ -13,12 +13,15 @@ Implemented (GKO-62, OP-A4):
 - request validation against a `Catalog`, normalized `RequestFingerprint`, subject-scoped `RetryKey`, and `RetryClass` (`request`, `value`);
 - an authorization hook: `Guard` calls the `Authorizer` for every command, records the decision, and returns an `Authorized` proof that `auth::hand_off` consumes and accepts only for Start; `Refusal` maps to typed responses without exposing the authorizer's reason (the adapter must authorize before validating); it fails closed on denial, unknown decision, or log failure, and the default policy is `DenyAll` (`auth`);
 - atomic acceptance (GKO-63, OP-A5): `Acceptor::start` authorizes and records the decision, validates, then commits the retry mapping, the execution record, and the initial `pending` snapshot (sequence 1) in one `Storage::accept` call; same-content retries return the earlier operation, changed content is an `identifier_conflict` that leaves the original unchanged, only a request that created the execution gets a `Dispatch`, and the execution stores the index of the decision record that permitted it (`acceptance`). The decision is recorded before the commit, so a failed commit leaves a permit record without an operation; the guard is one mutex, a known limit for slow authorizers;
-- a provisional `Executor` trait, `ExecutionToken`, and `Handoff`;
+- executor handoff and Core snapshots (GKO-64, OP-A6): Core issues a random UUIDv4-text `ExecutionToken` at acceptance. `Acceptor::dispatch` consumes the `Dispatch`, hands off once, and records the result: acknowledged is `running`, ambiguous is `unknown` with no redispatch, a refusal proven to precede side effects is `failed`. `Acceptor::notify` arbitrates identified executor events (`token`, `event_seq`) under Z6: duplicates and repeated acks add no snapshot, stale, out-of-order, invalid and conflicting events are typed `NotifyRejection`s that change nothing, terminal outcomes are immutable, partial `result` data is kept, and every new snapshot is a full copy with `sequence` + 1. Arbitration runs under the storage lock per record via `Storage::update` (`lifecycle`, `acceptance`). Stale and conflicting events are typed rejections, not panics or protocol aborts; whether to call them protocol errors stays open in decision Z6;
+- an `Executor` trait and `Handoff` (the trait is still synchronous and provisional);
 - behind the `test-support` feature, `TestExecutor`, fixtures, the test catalog (`test.echo`), and `PermitAllForTests`, the only permissive policy.
 
 In-memory only: `MemoryStorage` and the decision log lose everything on restart; there is no restart durability in `0.1.0` (durable accounting is `0.3.0`). The observation address `operations/<id>/observe` is provisional until the Observe mapping is chosen.
 
-Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); executor handoff and snapshots (GKO-64), state machine, snapshots, storage, Zenoh adapter. The in-memory decision log is not durable audit.
+Known limits of GKO-64: `Cancel` and `cancelled` do not exist (`cancelled` events are an invalid transition); terminal-detail enrichment is not decided, so a repeated terminal outcome changes nothing; an executor event is trusted by token possession alone (no executor authentication); if recording a handoff result fails after the executor received the work, the execution stays `pending` and the caller must record `Handoff::Ambiguous` (`Acceptor::record_handoff`) instead of dispatching again; simultaneous different outcomes on one `event_seq` resolve by lock order, so the winner is not deterministic for the executor. Snapshots are not delivered anywhere yet.
+
+Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); Get and Observe (GKO-65), durable storage, Zenoh adapter. The in-memory decision log is not durable audit.
 
 Dependencies: `serde` and `uuid` (`v4`); `serde_json` for tests only. Number comparison is spelling-sensitive (`1` differs from `1.0`), per decision Z4.
 
@@ -37,6 +40,7 @@ crates/operations/
 │   ├── auth.rs
 │   ├── executor.rs
 │   ├── identity.rs
+│   ├── lifecycle.rs
 │   ├── report.rs
 │   ├── request.rs
 │   ├── value.rs
@@ -44,7 +48,8 @@ crates/operations/
 ├── tests/
 │   ├── acceptance.rs
 │   ├── contracts.rs
-│   └── harness.rs
+│   ├── harness.rs
+│   └── lifecycle.rs
 └── examples/
     └── smoke.rs
 ```
