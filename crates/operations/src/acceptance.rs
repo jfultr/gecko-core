@@ -9,8 +9,27 @@
 //!
 //! Concurrency: the retry key is the unit of serialization. [`MemoryStorage`]
 //! holds its lock only for the check-and-insert of one key, never during
-//! authorization or executor handoff. The authorization guard is a short
-//! critical section because the decision log is ordered.
+//! authorization or executor handoff.
+//!
+//! Known limit: the decision log is ordered, so the [`Guard`] sits behind one
+//! mutex and every request, for any key, waits on it while the [`Authorizer`]
+//! runs and its decision is appended. That is cheap for the in-memory policy
+//! but would serialize all Starts behind a slow or remote authorizer. A
+//! production policy needs a decision log that does not hold one lock across
+//! the policy call (not a `0.1.0` goal).
+//!
+//! Decision and commit: the decision is preserved *before* the commit, so
+//! that no work can start unrecorded. A failed commit therefore leaves a
+//! permit record without an operation, and every retry records its own
+//! decision. A committed execution stores the index of the decision that
+//! created it ([`AcceptedOperation::decision_index`]), which links the two.
+//!
+//! Order of checks: validation runs before the retry lookup, so a retry sent
+//! after the catalog changed is validated against the current catalog and may
+//! be rejected instead of replayed.
+//!
+//! Scope: one acceptor owns one storage, so the receiving Gecko is the outer
+//! scope of every retry key; the caller subject is the inner scope.
 //!
 //! Durability: everything here is in memory. A restart loses all mappings,
 //! records, and decisions (`0.1.0`; durable accounting is `0.3.0` work).
@@ -42,6 +61,9 @@ pub struct AcceptedOperation {
     pub observation: ObservationAddress,
     /// Latest full snapshot; the initial `pending` one right after acceptance.
     pub snapshot: Report,
+    /// Index of the decision record that permitted the Start which created this
+    /// execution.
+    pub decision_index: u64,
 }
 
 /// The commit could not be performed; nothing was stored.
@@ -104,13 +126,21 @@ impl MemoryStorage {
     }
 
     /// Number of committed retry mappings.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the storage lock is poisoned.
     pub fn mapping_count(&self) -> usize {
-        self.state.lock().map_or(0, |s| s.mappings.len())
+        self.state.lock().expect("storage lock").mappings.len()
     }
 
     /// Number of committed execution records.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the storage lock is poisoned.
     pub fn operation_count(&self) -> usize {
-        self.state.lock().map_or(0, |s| s.operations.len())
+        self.state.lock().expect("storage lock").operations.len()
     }
 
     /// Makes the next `count` commits of a new execution fail before storing anything.
@@ -294,7 +324,7 @@ where
         };
         let request = validated.request();
 
-        let candidate = self.candidate(caller, request);
+        let candidate = self.candidate(caller, request, proof.record_index());
         let key = RetryKey::new(caller, request.request_id);
         match self.storage.accept(key, request.fingerprint(), candidate) {
             Ok(Acceptance::Created(accepted)) => {
@@ -323,7 +353,12 @@ where
         }
     }
 
-    fn candidate(&self, caller: &CallerContext, request: &StartRequest) -> AcceptedOperation {
+    fn candidate(
+        &self,
+        caller: &CallerContext,
+        request: &StartRequest,
+        decision_index: u64,
+    ) -> AcceptedOperation {
         let id = OperationId::generate();
         let operation = Operation {
             id,
@@ -354,6 +389,7 @@ where
             operation,
             observation: (self.addressing)(id),
             snapshot,
+            decision_index,
         }
     }
 }

@@ -54,6 +54,15 @@ fn acceptance_commits_mapping_record_and_pending_snapshot() {
     assert_eq!(core.storage().mapping_count(), 1);
     assert_eq!(core.storage().operation_count(), 1);
     assert_eq!(core.with_decision_log(|l| l.records().len()), Some(1));
+    // The execution is linked to the decision that permitted it.
+    let linked = core
+        .with_decision_log(|l| l.records()[stored.decision_index as usize].clone())
+        .unwrap();
+    assert_eq!(linked.decision, operations::Decision::Permit);
+    assert!(matches!(
+        linked.command,
+        operations::Command::Start { request_id, .. } if request_id == request.request_id
+    ));
 }
 
 #[test]
@@ -119,13 +128,72 @@ fn the_retry_key_is_scoped_to_the_caller() {
     assert!(alice.dispatch.is_some() && bob.dispatch.is_some());
     assert_eq!(core.storage().operation_count(), 2);
 
-    // Bob reusing Alice's id with other content is not a conflict with Alice.
+    // Another caller reusing Alice's id with other content is not a conflict with Alice.
     let mut other = request.clone();
     other
         .parameters
         .insert("message".into(), Value::Text("other".into()));
     let carol = core.start(&caller("carol"), &other);
     assert!(matches!(carol.response, StartResponse::Accepted { .. }));
+    assert!(carol.dispatch.is_some());
+    // Bob's own key is still bound to his content, not Alice's or Carol's.
+    let bob_retry = core.start(&caller("bob"), &request);
+    assert_eq!(accepted_id(&bob_retry.response), accepted_id(&bob.response));
+    assert_eq!(
+        rejection_code(&core.start(&caller("bob"), &other).response),
+        RejectionCode::IdentifierConflict
+    );
+    assert_eq!(core.storage().operation_count(), 3);
+}
+
+#[test]
+fn the_retry_key_is_scoped_to_the_receiving_gecko() {
+    // One acceptor owns one storage, so two Geckos never share a retry index.
+    let first = acceptor();
+    let second = acceptor();
+    let request = echo_request("hi");
+    let a = first.start(&caller("alice"), &request);
+    let b = second.start(&caller("alice"), &request);
+    assert_ne!(accepted_id(&a.response), accepted_id(&b.response));
+    assert!(a.dispatch.is_some() && b.dispatch.is_some());
+    assert_eq!(first.storage().operation_count(), 1);
+    assert_eq!(second.storage().operation_count(), 1);
+}
+
+#[test]
+fn equality_is_normalized_for_key_order_and_spelling_sensitive_for_numbers() {
+    let core = acceptor();
+    let mut request = echo_request("hi");
+    request
+        .parameters
+        .insert("repeat".into(), Value::Integer(1));
+    let original = core.start(&caller("alice"), &request);
+
+    // Same content assembled in another insertion order is a replay.
+    let mut reordered = StartRequest {
+        parameters: Default::default(),
+        ..request.clone()
+    };
+    reordered
+        .parameters
+        .insert("repeat".into(), Value::Integer(1));
+    reordered
+        .parameters
+        .insert("message".into(), Value::Text("hi".into()));
+    let replay = core.start(&caller("alice"), &reordered);
+    assert_eq!(
+        accepted_id(&replay.response),
+        accepted_id(&original.response)
+    );
+    assert!(replay.dispatch.is_none());
+
+    // `1` and `1.0` are different content (Z4).
+    let mut float = request.clone();
+    float
+        .parameters
+        .insert("repeat".into(), Value::float(1.0).unwrap());
+    assert_ne!(request.fingerprint(), float.fingerprint());
+    assert_eq!(core.storage().operation_count(), 1);
 }
 
 #[test]
@@ -210,6 +278,34 @@ fn commit_failure_accepts_nothing_dispatches_nothing_and_stores_no_mapping() {
     assert!(retry.dispatch.is_some());
     assert_eq!(core.storage().operation_count(), 1);
     assert_eq!(core.storage().mapping_count(), 1);
+}
+
+#[test]
+fn concurrent_retries_after_a_commit_failure_create_exactly_one_execution() {
+    let core = acceptor();
+    let request = echo_request("hi");
+    core.storage().inject_commit_failures(1);
+    let outcomes: Vec<_> = thread::scope(|scope| {
+        let handles: Vec<_> = (0..32)
+            .map(|_| scope.spawn(|| core.start(&caller("alice"), &request)))
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    let errors = outcomes
+        .iter()
+        .filter(|o| matches!(o.response, StartResponse::Error(_)))
+        .count();
+    assert_eq!(errors, 1, "only the injected commit fails");
+    assert_eq!(outcomes.iter().filter(|o| o.dispatch.is_some()).count(), 1);
+    assert_eq!(core.storage().operation_count(), 1);
+    assert_eq!(core.storage().mapping_count(), 1);
+    let ids: Vec<_> = outcomes
+        .iter()
+        .filter(|o| matches!(o.response, StartResponse::Accepted { .. }))
+        .map(|o| accepted_id(&o.response))
+        .collect();
+    assert_eq!(ids.len(), 31);
+    assert!(ids.iter().all(|id| *id == ids[0]));
 }
 
 #[test]
