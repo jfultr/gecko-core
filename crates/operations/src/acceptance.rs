@@ -56,7 +56,7 @@ use crate::value::Value;
 /// Number of the first snapshot of an execution.
 pub const FIRST_SEQUENCE: u64 = 1;
 
-/// Attempts to record the same handoff result before falling back to `Ambiguous` (O9).
+/// Attempts to record the same handoff result before the last write (O9).
 const RECORD_ATTEMPTS: usize = 3;
 
 /// A committed execution: its owner, identity, observation address, and latest snapshot.
@@ -446,8 +446,10 @@ where
     /// the execution `running`; an ambiguous one makes it `unknown`; a refusal
     /// proven to precede any side effect makes it `failed`. If recording fails
     /// with a storage error, Core retries the same result up to `RECORD_ATTEMPTS`
-    /// times, then records [`Handoff::Ambiguous`] once (the execution becomes
-    /// `unknown`). If that also fails, [`DispatchError::Unrecorded`] carries the
+    /// times, then makes one last write: an acknowledged handoff is recorded as
+    /// [`Handoff::Ambiguous`] (the execution becomes `unknown`), and a refusal is
+    /// tried once more as it is, because a proven refusal is never downgraded to
+    /// `unknown`. If that also fails, [`DispatchError::Unrecorded`] carries the
     /// executor's result and the execution stays `pending`. The caller must not
     /// dispatch again. The handoff runs without any storage lock held.
     ///
@@ -518,8 +520,16 @@ where
         match result {
             Ok(notified) => Ok(notified),
             Err(NotifyRejection::Unavailable) => {
-                if handoff != Handoff::Ambiguous
-                    && let Ok(notified) = self.record_handoff(id, &Handoff::Ambiguous)
+                // One last write. A refusal is proven and stays a refusal: an
+                // `unknown` execution would wait for events a refusing executor
+                // never sends.
+                let last = match &handoff {
+                    Handoff::Acknowledged => Some(Handoff::Ambiguous),
+                    Handoff::Refused { .. } => Some(handoff.clone()),
+                    Handoff::Ambiguous => None,
+                };
+                if let Some(last) = last
+                    && let Ok(notified) = self.record_handoff(id, &last)
                 {
                     return Ok(notified);
                 }

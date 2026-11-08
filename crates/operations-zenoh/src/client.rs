@@ -307,7 +307,10 @@ impl Client {
                         last = no_answer;
                         break;
                     }
-                    Ok(None) => break,
+                    Ok(None) => {
+                        last = NoAnswer("the stream closed without an end frame".to_string());
+                        break;
+                    }
                     Ok(Some(ObserveItem::Response(ObserveResponse::Attached {
                         current,
                         gap,
