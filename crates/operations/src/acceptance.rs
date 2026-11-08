@@ -42,10 +42,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::api::{ObservationAddress, Rejection, RejectionCode, ServiceError, StartResponse};
 use crate::auth::{self, Authorized, Authorizer, Command, DecisionLog, Guard};
-use crate::executor::{ExecutionToken, Executor};
+use crate::executor::{ExecutionToken, Executor, Handoff};
 use crate::identity::{CallerContext, OperationId, Subject};
 use crate::lifecycle::{
-    EventLog, ExecutorEvent, Notified, NotifyRejection, apply_event, apply_handoff,
+    EventLog, ExecutorEvent, Notified, NotifyRejection, apply_dispatch_failure, apply_event,
+    apply_handoff,
 };
 use crate::observe::{DEFAULT_OBSERVER_CAPACITY, Hub};
 use crate::report::{Operation, Report, State, Timestamp};
@@ -54,6 +55,9 @@ use crate::value::Value;
 
 /// Number of the first snapshot of an execution.
 pub const FIRST_SEQUENCE: u64 = 1;
+
+/// Attempts to record the same handoff result before falling back to `Ambiguous` (O9).
+const RECORD_ATTEMPTS: usize = 3;
 
 /// A committed execution: its owner, identity, observation address, and latest snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -287,15 +291,26 @@ impl StartOutcome {
     }
 }
 
-/// [`Acceptor::dispatch`] could not complete.
+/// [`Acceptor::dispatch`] or [`Acceptor::abandon`] could not complete.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DispatchError {
     /// The authorization proof was not issued for Start; nothing reached the executor.
     WrongCommand,
-    /// The execution record could not be read.
+    /// The execution record could not be read, or is missing. Nothing reached the
+    /// executor. Core tried to record `failed` best-effort; if that also failed,
+    /// the execution stays `pending`.
     Unavailable,
-    /// The handoff result could not be recorded; see [`Acceptor::dispatch`].
+    /// Storage accepted the call, but the transition rules rejected the change,
+    /// for example because the execution already left `pending`. Nothing changed.
     Rejected(NotifyRejection),
+    /// The executor was reached and returned `handoff`, but no result could be
+    /// recorded: the same result was retried, then `Handoff::Ambiguous` was tried,
+    /// and both failed. The execution stays `pending`. Core does not dispatch again.
+    /// Until durable recovery exists (ST5, `0.3.0`), nothing repairs this state.
+    Unrecorded {
+        /// The result the executor returned.
+        handoff: Handoff,
+    },
 }
 
 type Clock = Box<dyn Fn() -> Timestamp + Send + Sync>;
@@ -419,35 +434,92 @@ where
     /// Hands a newly created execution to `executor` and records the result.
     ///
     /// Consumes the [`Dispatch`], so one acceptance hands off at most once and
-    /// Core never redispatches. An acknowledged handoff makes the execution
-    /// `running`; an ambiguous one makes it `unknown`; a refusal proven to
-    /// precede any side effect makes it `failed`. The handoff runs without any
-    /// storage lock held.
+    /// Core never redispatches. The execution record is read first. If it
+    /// cannot be read or is missing, the executor is not called: Core records
+    /// `failed` best-effort (nothing reached the executor) and returns
+    /// [`DispatchError::Unavailable`].
     ///
-    /// If the result cannot be recorded, the execution stays `pending` while
-    /// the executor may already hold it; call [`Acceptor::record_handoff`]
-    /// with [`Handoff::Ambiguous`](crate::executor::Handoff::Ambiguous) rather
-    /// than dispatching again.
+    /// After the handoff, the result is recorded: an acknowledged handoff makes
+    /// the execution `running`; an ambiguous one makes it `unknown`; a refusal
+    /// proven to precede any side effect makes it `failed`. If recording fails
+    /// with a storage error, Core retries the same result up to `RECORD_ATTEMPTS`
+    /// times, then records [`Handoff::Ambiguous`] once (the execution becomes
+    /// `unknown`). If that also fails, [`DispatchError::Unrecorded`] carries the
+    /// executor's result and the execution stays `pending`. The caller must not
+    /// dispatch again. The handoff runs without any storage lock held.
     ///
     /// # Errors
     ///
-    /// [`DispatchError`] when the proof is not for Start, the execution is
-    /// missing, or the result could not be recorded.
+    /// [`DispatchError`]: `Unavailable` when the record was not readable,
+    /// `Rejected` when the transition rules refuse the result, `Unrecorded`
+    /// when no result could be stored, and `WrongCommand` when the proof is
+    /// not for Start.
     pub fn dispatch(
         &self,
         dispatch: Dispatch,
         executor: &mut dyn Executor,
     ) -> Result<Notified, DispatchError> {
-        let (proof, id) = dispatch.into_parts();
-        let accepted = self
-            .storage
-            .operation(&id)
-            .map_err(|_| DispatchError::Unavailable)?
-            .ok_or(DispatchError::Unavailable)?;
+        let id = dispatch.operation_id();
+        let accepted = match self.storage.operation(&id) {
+            Ok(Some(accepted)) => accepted,
+            _ => {
+                let _ = self.mutate(&id, |op, now| {
+                    apply_dispatch_failure(op, "the execution record could not be read", now)
+                });
+                return Err(DispatchError::Unavailable);
+            }
+        };
+        let (proof, _) = dispatch.into_parts();
         let handoff = auth::hand_off(proof, executor, &accepted.token)
             .map_err(|_| DispatchError::WrongCommand)?;
-        self.record_handoff(&id, &handoff)
-            .map_err(DispatchError::Rejected)
+        self.record_handoff_resilient(&id, handoff)
+    }
+
+    /// Ends a newly created execution that cannot reach its executor at all.
+    ///
+    /// Consumes the [`Dispatch`] without calling any executor and records
+    /// `failed` with an explanation that nothing reached the executor. Use it
+    /// when the caller knows the executor is unavailable before handoff (for
+    /// example, a poisoned lock). It is valid only while the execution is `pending`.
+    ///
+    /// # Errors
+    ///
+    /// [`DispatchError::Unavailable`] when storage cannot apply the change, and
+    /// [`DispatchError::Rejected`] when the execution is no longer `pending`.
+    pub fn abandon(&self, dispatch: Dispatch, reason: &str) -> Result<Notified, DispatchError> {
+        let (_proof, id) = dispatch.into_parts();
+        self.mutate(&id, |op, now| apply_dispatch_failure(op, reason, now))
+            .map_err(|rejection| match rejection {
+                NotifyRejection::Unavailable => DispatchError::Unavailable,
+                other => DispatchError::Rejected(other),
+            })
+    }
+
+    /// Records a handoff result, retrying storage errors (see [`Acceptor::dispatch`]).
+    fn record_handoff_resilient(
+        &self,
+        id: &OperationId,
+        handoff: Handoff,
+    ) -> Result<Notified, DispatchError> {
+        let mut result = Err(NotifyRejection::Unavailable);
+        for _ in 0..RECORD_ATTEMPTS {
+            result = self.record_handoff(id, &handoff);
+            if !matches!(result, Err(NotifyRejection::Unavailable)) {
+                break;
+            }
+        }
+        match result {
+            Ok(notified) => Ok(notified),
+            Err(NotifyRejection::Unavailable) => {
+                if handoff != Handoff::Ambiguous
+                    && let Ok(notified) = self.record_handoff(id, &Handoff::Ambiguous)
+                {
+                    return Ok(notified);
+                }
+                Err(DispatchError::Unrecorded { handoff })
+            }
+            Err(rejection) => Err(DispatchError::Rejected(rejection)),
+        }
     }
 
     /// Records the result of a handoff of execution `id`.

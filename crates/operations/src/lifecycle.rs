@@ -292,6 +292,28 @@ pub(crate) fn apply_event(
     Ok(notified)
 }
 
+/// Records that the execution never reached its executor (O8, November 8, 2026).
+///
+/// Only `pending` may end this way. The explanation says that nothing reached
+/// the executor, which is an infrastructure failure, not an executor refusal.
+pub(crate) fn apply_dispatch_failure(
+    op: &mut AcceptedOperation,
+    reason: &str,
+    now: Timestamp,
+) -> Result<Notified, NotifyRejection> {
+    let from = op.snapshot.state;
+    if from != State::Pending {
+        return Err(NotifyRejection::InvalidTransition { from });
+    }
+    let mut next = next_snapshot(op, now, State::Failed);
+    next.explanation = format!(
+        "the execution could not be handed to its executor; nothing reached the executor: {reason}"
+    );
+    Ok(Notified::Applied {
+        sequence: record(op, next),
+    })
+}
+
 /// Records the result of handing the execution to its executor.
 ///
 /// Unlike an executor event this consumes no `event_seq`. `Acknowledged`

@@ -4,8 +4,84 @@
 //! Tests queue the handoff outcomes they need, then inspect recorded calls.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU32, Ordering};
 
+use crate::acceptance::{Acceptance, AcceptedOperation, CommitError, MemoryStorage, Storage};
 use crate::executor::{ExecutionToken, Executor, Handoff};
+use crate::identity::OperationId;
+use crate::request::{RequestFingerprint, RetryKey};
+
+/// An in-memory [`Storage`] whose reads or updates fail on demand.
+///
+/// `fail_next_reads(n)` makes the next `n` calls to [`Storage::operation`] fail,
+/// and `fail_next_updates(n)` does the same for [`Storage::update`]. Failed calls
+/// change nothing. Every other call delegates to a [`MemoryStorage`].
+#[derive(Debug, Default)]
+pub struct FlakyStorage {
+    inner: MemoryStorage,
+    failing_reads: AtomicU32,
+    failing_updates: AtomicU32,
+}
+
+impl FlakyStorage {
+    /// Creates an empty storage with no failures queued.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Makes the next `count` reads of an execution record fail.
+    pub fn fail_next_reads(&self, count: u32) {
+        self.failing_reads.store(count, Ordering::SeqCst);
+    }
+
+    /// Makes the next `count` updates of an execution record fail.
+    pub fn fail_next_updates(&self, count: u32) {
+        self.failing_updates.store(count, Ordering::SeqCst);
+    }
+}
+
+/// Consumes one queued failure; `true` when the call must fail.
+fn take_failure(counter: &AtomicU32) -> bool {
+    counter
+        .try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+        .is_ok()
+}
+
+impl Storage for FlakyStorage {
+    fn accept(
+        &self,
+        key: RetryKey,
+        fingerprint: RequestFingerprint,
+        candidate: AcceptedOperation,
+    ) -> Result<Acceptance, CommitError> {
+        self.inner.accept(key, fingerprint, candidate)
+    }
+
+    fn operation(&self, id: &OperationId) -> Result<Option<AcceptedOperation>, CommitError> {
+        if take_failure(&self.failing_reads) {
+            return Err(CommitError("injected read failure".to_string()));
+        }
+        self.inner.operation(id)
+    }
+
+    fn operation_for_token(
+        &self,
+        token: &ExecutionToken,
+    ) -> Result<Option<OperationId>, CommitError> {
+        self.inner.operation_for_token(token)
+    }
+
+    fn update(
+        &self,
+        id: &OperationId,
+        change: &mut dyn FnMut(&mut AcceptedOperation),
+    ) -> Result<bool, CommitError> {
+        if take_failure(&self.failing_updates) {
+            return Err(CommitError("injected update failure".to_string()));
+        }
+        self.inner.update(id, change)
+    }
+}
 
 /// A scriptable executor that records every dispatched token.
 ///
