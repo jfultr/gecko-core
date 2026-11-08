@@ -177,3 +177,19 @@ fn abandon_after_the_execution_left_pending_is_rejected() {
     );
     assert_eq!(snapshot(&core, &id).state, State::Running);
 }
+
+#[test]
+fn a_refusal_that_cannot_be_recorded_is_never_downgraded_to_unknown() {
+    let core = acceptor();
+    let (id, dispatch) = started(&core);
+    core.storage().fail_next_updates(3);
+    let mut executor = TestExecutor::new();
+    executor.queue_response(Handoff::Refused {
+        reason: "no capacity".to_string(),
+    });
+
+    assert!(core.dispatch(dispatch, &mut executor).is_ok());
+    let snap = snapshot(&core, &id);
+    assert_eq!(snap.state, State::Failed);
+    assert!(snap.explanation.contains("refused"));
+}

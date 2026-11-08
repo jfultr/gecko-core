@@ -225,9 +225,15 @@ where
                         Err(_) => self.core.abandon(dispatch, "the executor is unavailable"),
                     };
                     if let Err(error) = result {
-                        eprintln!(
-                            "operations-zenoh: the handoff result was not recorded, so the execution may stay pending: {error:?}"
-                        );
+                        // Only these errors can leave the execution `pending`.
+                        let note = match error {
+                            operations::DispatchError::Unrecorded { .. }
+                            | operations::DispatchError::Unavailable => {
+                                "; the execution may stay pending"
+                            }
+                            _ => "",
+                        };
+                        eprintln!("operations-zenoh: dispatch failed: {error:?}{note}");
                     }
                 }
                 outcome.response
