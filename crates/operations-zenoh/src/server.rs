@@ -219,13 +219,15 @@ where
                 let outcome = self.core.start(&self.config.caller, &request);
                 if let Some(dispatch) = outcome.dispatch {
                     // The commit is done; hand the new execution to the executor once.
-                    let handoff = match self.executor.lock() {
+                    // If the executor is unusable, the execution never reaches it and fails.
+                    let result = match self.executor.lock() {
                         Ok(mut executor) => self.core.dispatch(dispatch, executor.as_mut()),
-                        Err(_) => Err(operations::DispatchError::Unavailable),
+                        Err(_) => self.core.abandon(dispatch, "the executor is unavailable"),
                     };
-                    if handoff.is_err() {
-                        // The execution stays recorded; a retry returns it.
-                        eprintln!("operations-zenoh: handoff result was not recorded");
+                    if let Err(error) = result {
+                        eprintln!(
+                            "operations-zenoh: the handoff result was not recorded, so the execution may stay pending: {error:?}"
+                        );
                     }
                 }
                 outcome.response
