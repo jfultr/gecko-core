@@ -4,7 +4,7 @@
 
 CARGO ?= cargo
 
-.PHONY: all build test fmt-check clippy smoke docs-check articles-check hooks check
+.PHONY: all build test fmt-check clippy smoke demo docs-check articles-check hooks check
 
 all: check
 
@@ -24,6 +24,9 @@ clippy:
 smoke:
 	$(CARGO) run --locked -p operations --features test-support --example smoke
 
+demo:
+	$(CARGO) run --locked -p operations-zenoh --features test-support --example demo
+
 docs-check:
 	python3 docs/check_links.py
 
@@ -33,4 +36,4 @@ articles-check:
 hooks:
 	git config core.hooksPath .githooks
 
-check: fmt-check build clippy test smoke docs-check articles-check
+check: fmt-check build clippy test smoke demo docs-check articles-check

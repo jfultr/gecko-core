@@ -22,9 +22,9 @@ In-memory only: `MemoryStorage` and the decision log lose everything on restart;
 
 Known limits of GKO-64: `Cancel` and `cancelled` do not exist (`cancelled` events are an invalid transition); terminal-detail enrichment is not decided, so a repeated terminal outcome changes nothing; an executor event is trusted by token possession alone (no executor authentication); if recording a handoff result fails after the executor received the work, the execution stays `pending` and the caller must record `Handoff::Ambiguous` (`Acceptor::record_handoff`) instead of dispatching again; simultaneous different outcomes on one `event_seq` resolve by lock order, so the winner is not deterministic for the executor. Snapshots are not delivered anywhere yet.
 
-Known limits of GKO-65: one lock serializes every publication and attach across all executions; only the starting subject may read (choice O1, awaiting confirmation with O2–O4 in status §2.5); a released report cannot come back; there is no full history, only the latest snapshot plus gap disclosure; Observe is an in-process stream, not yet a Zenoh mapping.
+Known limits of GKO-65: one lock serializes every publication and attach across all executions; only the starting subject may read (choice O1, awaiting confirmation with O2–O4 in status §2.5); a released report cannot come back; there is no full history, only the latest snapshot plus gap disclosure; Observe here is an in-process stream; its Zenoh mapping is in [`operations-zenoh`](../operations-zenoh/README.md).
 
-Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); durable storage, Zenoh adapter. The in-memory decision log is not durable audit.
+Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); durable storage; the Zenoh adapter is a separate crate. The in-memory decision log is not durable audit.
 
 Dependencies: `serde` and `uuid` (`v4`); `serde_json` for tests only. Number comparison is spelling-sensitive (`1` differs from `1.0`), per decision Z4.
 
