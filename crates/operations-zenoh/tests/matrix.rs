@@ -133,11 +133,22 @@ impl Rig {
         Arc::clone(&self.client)
     }
 
+    /// Pauses the server's Observe streams and waits until the one attached
+    /// stream has stopped reading Core, so a following burst overflows its
+    /// buffer at a known point.
+    fn pause_observe(&self) {
+        self.server.set_observe_paused(true);
+        wait_until("the Observe stream to pause", || {
+            self.server.observe_paused_streams() == 1
+        });
+    }
+
     fn close(self) {
-        // Threads that held a handle have been joined, so this is the last one.
-        if let Ok(client) = Arc::try_unwrap(self.client) {
-            client.close();
-        }
+        // Threads that held a handle must have been joined: a leaked handle
+        // would leave the client session open.
+        let client = Arc::try_unwrap(self.client)
+            .unwrap_or_else(|_| panic!("a client handle is still held at close"));
+        client.close();
         self.server.close();
     }
 }
@@ -383,9 +394,7 @@ fn p3_slow_observer_is_ended_as_lagged_and_resumes_with_a_gap() {
         rig.core.observer_count(&operation.id) == 1
     });
 
-    rig.server.set_observe_paused(true);
-    // Let the server see the pause before the burst; it checks every 50 ms.
-    thread::sleep(Duration::from_millis(200));
+    rig.pause_observe();
     for n in 1..=5 {
         let started = Instant::now();
         rig.notify(
@@ -461,8 +470,7 @@ fn p3_follow_survives_a_lagged_stream_and_ends_on_the_core_snapshot() {
     wait_until("the follower to attach", || {
         rig.core.observer_count(&id) == 1
     });
-    rig.server.set_observe_paused(true);
-    thread::sleep(Duration::from_millis(200));
+    rig.pause_observe();
     for n in 1..=4 {
         rig.notify(
             &token,
@@ -496,10 +504,25 @@ fn p3_follow_survives_a_lagged_stream_and_ends_on_the_core_snapshot() {
 /// P3/P5: attaching while the final snapshot is published never loses it, over
 /// Zenoh. Each round races a terminal event against a new observer; whichever
 /// wins, the client ends on the terminal snapshot Core holds.
+///
+/// An Observe query takes far longer to reach Core than an in-process
+/// `notify`, so releasing both at once would let the terminal win almost every
+/// round. The terminal is instead delayed by a growing fraction of a measured
+/// round trip, sweeping the publication from before the attach to after it,
+/// and both orders must have been seen.
 #[test]
 fn p3_p5_attach_racing_the_final_publication_never_loses_it() {
+    const ROUNDS: u32 = 40;
     let rig = rig(None, Duration::from_secs(5));
-    for round in 0..40 {
+    let probe = rig.start("round trip");
+    let measured = Instant::now();
+    for _ in 0..10 {
+        rig.report(probe.id);
+    }
+    let round_trip = measured.elapsed() / 10;
+
+    let (mut attached_first, mut terminal_first) = (0, 0);
+    for round in 0..ROUNDS {
         let operation = rig.start(&format!("race {round}"));
         let id = operation.id;
         let token = rig.executor.tokens().pop().unwrap();
@@ -509,19 +532,36 @@ fn p3_p5_attach_racing_the_final_publication_never_loses_it() {
             let barrier = Arc::clone(&barrier);
             thread::spawn(move || {
                 barrier.wait();
-                client.follow(id, &mut Follower::new(), 3, |_, _| {})
+                let mut seen = Vec::new();
+                let followed = client.follow(id, &mut Follower::new(), 3, |report, _| {
+                    seen.push(report.state);
+                });
+                (followed, seen)
             })
         };
         barrier.wait();
+        // From 0 to 3 round trips: early rounds publish before the attach
+        // reaches Core, late rounds after it, the middle ones around it.
+        thread::sleep(round_trip * 3 * round / ROUNDS);
         rig.notify(&token, 1, finish(Outcome::Succeeded));
-        let followed = observer.join().unwrap().unwrap();
+        let (followed, seen) = observer.join().unwrap();
         let held = rig.report(id);
         assert_eq!(held.state, State::Succeeded, "round {round}");
         assert_eq!(
-            followed,
+            followed.unwrap(),
             Followed::Terminal(Box::new(held)),
             "round {round}: the final snapshot was lost"
         );
+        match seen.as_slice() {
+            [State::Running, State::Succeeded] => attached_first += 1,
+            [State::Succeeded] => terminal_first += 1,
+            other => panic!("round {round}: unexpected snapshots {other:?}"),
+        }
     }
+    assert!(
+        attached_first > 0 && terminal_first > 0,
+        "both orders must be exercised: attached first {attached_first}, \
+         terminal first {terminal_first} (round trip {round_trip:?})"
+    );
     rig.close();
 }

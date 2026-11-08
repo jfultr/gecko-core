@@ -96,7 +96,7 @@ Observed on 2026-11-08: `cargo test --workspace --all-features` passed 93 tests 
 | Changed-content retry | same `request_id`, other parameters | `acceptance.rs`, `matrix.rs`, `demo.rs` |
 | Concurrent retries | threads released by a `Barrier` | `acceptance.rs`, `matrix.rs` |
 | Observation lag | `Acceptor::with_observer_capacity` plus `Server::set_observe_paused` (new in GKO-67, only with the `test-support` feature) | `matrix.rs` |
-| Final-publication race | a terminal event and an attach released together, repeated | `observe.rs`, `matrix.rs` |
+| Final-publication race | Core: a terminal event and an attach released together, repeated; Zenoh: the terminal delayed by 0 to 3 measured round trips after the observer starts, so both orders occur | `observe.rs`, `matrix.rs` |
 
 A check that cannot fail proves nothing. The lag check was verified by turning `set_observe_paused` into a no-op: `p3_slow_observer_is_ended_as_lagged_and_resumes_with_a_gap` then fails. The Core attach order was verified earlier (GKO-65).
 
@@ -133,7 +133,7 @@ To watch the counters on a single execution, follow the sequence numbers: `pendi
 
 - Not covered because it is not built: Cancel cases of the [validation outline](spec/model.md#10-validation) (`0.2.0`), restart and republish of a retained snapshot, and recovery after a crash (`0.3.0`). The outline row "inject failures around handoff and recording" is covered at Core for storage and handoff failures (`dispatch.rs`) but not as a crash.
 - Everything is one host, loopback, in memory, threads in one process. Not measured: more than one host, multi-hop routing, half-open links, Gecko restart, load, and separate-process clients.
-- The Zenoh attach race runs 40 rounds and has not been checked against a deliberately broken server; the Core race runs 300 rounds and has.
+- The Zenoh attach race runs 40 rounds and asserts that both orders occurred (attach first and terminal first); on the development host about 33/7 idle and 17–27 attach-first under full CPU load. It has not been checked against a deliberately broken server, and it cannot force the exact interleaving inside Core; the Core race runs 300 rounds and has been checked against a broken attach order.
 - `p3_follow_survives_a_lagged_stream_and_ends_on_the_core_snapshot` also passes without the pause hook: the in-process burst of events outruns the Zenoh observer and overflows Core's buffer anyway. The test asserts the exact gap `5..=6`, which `follow` can only disclose after resuming from a stream that ended `lagged` (the follower attaches before the burst, and the lease is not reached), so it still shows the lag; the hook only makes the overflow point deterministic.
 - Lag is produced by a server hook that stops reading Core's stream. It does not show how Zenoh congestion would behave with a real slow client.
 - Identity is adapter configuration, not authentication; the permissive test policy is allowed only in this restricted deployment (P6, [security](spec/security.md)).
