@@ -6,6 +6,14 @@
 //! The exact event schema, error taxonomy, identifier format (UUIDv4, a later
 //! task), and sync vs async shape are NOT decided yet. This module only fixes
 //! the shape needed to drive the test harness and is provisional.
+//!
+//! Executor events (`Acceptor::notify`) are numbered by `event_seq`, contiguous
+//! from 1 per token. A number that Core consumes is spent even if Core rejects
+//! the event by the transition rules (for example progress before the execution
+//! is `running`, or a second terminal outcome). The executor does not need to
+//! resend a rejected number and may continue with the next one. A resend of the
+//! same number with the same content returns the same rejection; a skipped
+//! number is refused as out of order and consumes nothing.
 
 /// Opaque identity of one execution, assigned by Core on acceptance.
 ///

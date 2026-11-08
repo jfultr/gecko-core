@@ -119,8 +119,10 @@ pub trait Storage: Send + Sync {
     ) -> Result<Option<OperationId>, CommitError>;
 
     /// Applies `change` to the record of `id` while no other change to any
-    /// record runs, and returns whether the record exists. `change` must leave
-    /// the record untouched when it decides to reject.
+    /// record runs, and returns whether the record exists. Every change
+    /// `change` makes is kept, even when the command it serves is rejected: an
+    /// executor event rejected by the transition rules still consumes its
+    /// `event_seq` (status Z6), so the record changes without a new snapshot.
     fn update(
         &self,
         id: &OperationId,
