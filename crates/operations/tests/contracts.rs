@@ -59,7 +59,12 @@ fn requests_and_responses_round_trip() {
     round_trip(&GetResponse::Report(Box::new(report.clone())));
     round_trip(&GetResponse::Unavailable(Unavailable {}));
     round_trip(&ObserveResponse::Attached {
-        current: Box::new(report),
+        current: Some(Box::new(report)),
+        sequence: 4,
+        gap: Some(operations::Gap {
+            first_missed: 2,
+            last_missed: 3,
+        }),
     });
     round_trip(&ObserveResponse::Unavailable(Unavailable {}));
 }

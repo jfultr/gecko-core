@@ -26,6 +26,10 @@ name = "contracts"
 required-features = ["test-support"]
 
 [[test]]
+name = "observe"
+required-features = ["test-support"]
+
+[[test]]
 name = "lifecycle"
 required-features = ["test-support"]
 

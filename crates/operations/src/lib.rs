@@ -21,6 +21,8 @@ pub mod executor;
 pub mod identity;
 /// Executor events and Core arbitration.
 pub mod lifecycle;
+/// Get, Observe, and observer-side snapshot following.
+pub mod observe;
 /// Full Operation Report types.
 pub mod report;
 /// Start request, validation catalog, and retry comparison.
@@ -37,7 +39,7 @@ pub use acceptance::{
     StartOutcome, Storage,
 };
 pub use api::{
-    GetRequest, GetResponse, InputError, ObservationAddress, ObserveRequest, ObserveResponse,
+    Gap, GetRequest, GetResponse, InputError, ObservationAddress, ObserveRequest, ObserveResponse,
     Rejection, RejectionCode, ServiceError, StartResponse, Unavailable, Violation,
 };
 pub use auth::{
@@ -47,6 +49,7 @@ pub use auth::{
 pub use executor::{ExecutionToken, Executor, Handoff};
 pub use identity::{CallerContext, OperationId, RequestId, Subject};
 pub use lifecycle::{EventKind, EventLog, ExecutorEvent, Notified, NotifyRejection, Outcome};
+pub use observe::{Applied, End, Follower, Observation, Poll};
 pub use report::{Blocker, Operation, ProposedAction, Report, State};
 pub use request::{
     Catalog, OperationSpec, OperationType, ParameterSpec, RequestFingerprint, RetryClass, RetryKey,
