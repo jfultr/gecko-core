@@ -47,6 +47,7 @@ use crate::identity::{CallerContext, OperationId, Subject};
 use crate::lifecycle::{
     EventLog, ExecutorEvent, Notified, NotifyRejection, apply_event, apply_handoff,
 };
+use crate::observe::{DEFAULT_OBSERVER_CAPACITY, Hub};
 use crate::report::{Operation, Report, State, Timestamp};
 use crate::request::{Catalog, RequestFingerprint, RetryClass, RetryKey, StartRequest};
 use crate::value::Value;
@@ -72,6 +73,9 @@ pub struct AcceptedOperation {
     pub token: ExecutionToken,
     /// Executor events accepted so far, for duplicate recognition.
     pub events: EventLog,
+    /// Whether the report may still be read. Retention can end it; the
+    /// request mapping, the state, and the `sequence` counter stay.
+    pub report_retained: bool,
 }
 
 /// The commit could not be performed; nothing was stored.
@@ -298,10 +302,12 @@ type Addressing = Box<dyn Fn(OperationId) -> ObservationAddress + Send + Sync>;
 /// Accepts Start requests: authorization, validation, and atomic commit.
 pub struct Acceptor<A, L, S> {
     catalog: Catalog,
-    guard: Mutex<Guard<A, L>>,
+    pub(crate) guard: Mutex<Guard<A, L>>,
     storage: S,
-    clock: Clock,
+    pub(crate) clock: Clock,
     addressing: Addressing,
+    pub(crate) hub: Hub,
+    pub(crate) observer_capacity: usize,
 }
 
 impl<A, L, S> Acceptor<A, L, S>
@@ -324,6 +330,8 @@ where
                 Timestamp(millis)
             }),
             addressing: Box::new(|id| ObservationAddress(format!("operations/{id}/observe"))),
+            hub: Hub::default(),
+            observer_capacity: DEFAULT_OBSERVER_CAPACITY,
         }
     }
 
@@ -451,17 +459,7 @@ where
         id: &OperationId,
         handoff: &crate::executor::Handoff,
     ) -> Result<Notified, NotifyRejection> {
-        let now = (self.clock)();
-        let mut result = Err(NotifyRejection::UnknownToken);
-        let found = self
-            .storage
-            .update(id, &mut |op| result = apply_handoff(op, handoff, now))
-            .map_err(|_| NotifyRejection::Unavailable)?;
-        if found {
-            result
-        } else {
-            Err(NotifyRejection::UnknownToken)
-        }
+        self.mutate(id, |op, now| apply_handoff(op, handoff, now))
     }
 
     /// Validates and applies one executor notification.
@@ -478,12 +476,35 @@ where
             .operation_for_token(&event.token)
             .map_err(|_| NotifyRejection::Unavailable)?
             .ok_or(NotifyRejection::UnknownToken)?;
+        self.mutate(&id, |op, now| apply_event(op, event, now))
+    }
+
+    /// Applies one change to execution `id` and publishes the snapshot it creates.
+    ///
+    /// The observer lock is held across the storage update and the publication,
+    /// so an observer attaching concurrently either sees the new snapshot as
+    /// its latest one or receives it on its stream, never neither.
+    fn mutate(
+        &self,
+        id: &OperationId,
+        apply: impl Fn(&mut AcceptedOperation, Timestamp) -> Result<Notified, NotifyRejection>,
+    ) -> Result<Notified, NotifyRejection> {
         let now = (self.clock)();
+        let mut watchers = self.hub.lock().map_err(|_| NotifyRejection::Unavailable)?;
         let mut result = Err(NotifyRejection::UnknownToken);
+        let mut published = None;
         let found = self
             .storage
-            .update(&id, &mut |op| result = apply_event(op, event, now))
+            .update(id, &mut |op| {
+                result = apply(op, now);
+                if matches!(result, Ok(Notified::Applied { .. })) && op.report_retained {
+                    published = Some(op.snapshot.clone());
+                }
+            })
             .map_err(|_| NotifyRejection::Unavailable)?;
+        if let Some(snapshot) = published {
+            watchers.publish(id, &snapshot);
+        }
         if found {
             result
         } else {
@@ -530,6 +551,7 @@ where
             decision_index,
             token: ExecutionToken::generate(),
             events: EventLog::default(),
+            report_retained: true,
         }
     }
 }

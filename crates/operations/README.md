@@ -14,6 +14,7 @@ Implemented (GKO-62, OP-A4):
 - an authorization hook: `Guard` calls the `Authorizer` for every command, records the decision, and returns an `Authorized` proof that `auth::hand_off` consumes and accepts only for Start; `Refusal` maps to typed responses without exposing the authorizer's reason (the adapter must authorize before validating); it fails closed on denial, unknown decision, or log failure, and the default policy is `DenyAll` (`auth`);
 - atomic acceptance (GKO-63, OP-A5): `Acceptor::start` authorizes and records the decision, validates, then commits the retry mapping, the execution record, and the initial `pending` snapshot (sequence 1) in one `Storage::accept` call; same-content retries return the earlier operation, changed content is an `identifier_conflict` that leaves the original unchanged, only a request that created the execution gets a `Dispatch`, and the execution stores the index of the decision record that permitted it (`acceptance`). The decision is recorded before the commit, so a failed commit leaves a permit record without an operation; the guard is one mutex, a known limit for slow authorizers;
 - executor handoff and Core snapshots (GKO-64, OP-A6): Core issues a random UUIDv4-text `ExecutionToken` at acceptance. `Acceptor::dispatch` consumes the `Dispatch`, hands off once, and records the result: acknowledged is `running`, ambiguous is `unknown` with no redispatch, a refusal proven to precede side effects is `failed`. `Acceptor::notify` arbitrates identified executor events (`token`, `event_seq`) under Z6: duplicates and repeated acks add no snapshot, stale, out-of-order, invalid and conflicting events are typed `NotifyRejection`s that change nothing, terminal outcomes are immutable, partial `result` data is kept, and every new snapshot is a full copy with `sequence` + 1. Arbitration runs under the storage lock per record via `Storage::update` (`lifecycle`, `acceptance`). Stale and conflicting events are typed rejections, not panics or protocol aborts; whether to call them protocol errors stays open in decision Z6;
+- authoritative Get and safe Observe (GKO-65, OP-A7): `Acceptor::get` returns the latest retained full snapshot of an execution the caller owns. `Acceptor::observe` reads the latest snapshot and registers the stream under the lock that publishes every snapshot, so a final publication cannot be lost between the two. `after_sequence` resumes: a snapshot the observer holds is not redelivered, skipped numbers are disclosed as a `Gap`, and the latest snapshot is always delivered. Each observer has a bounded buffer; a full one is ended as `Lagged` and Core never waits. A terminal snapshot ends streams with `Terminal`, dropping an `Observation` only removes the observer, and reading never starts, resumes or cancels work. `Follower` is the observer-side rule: the greatest `sequence` wins, equal or lower ones never replace newer state, and conflicting content under one number is refused. `Acceptor::release_report` stands in for retention (`observe`);
 - an `Executor` trait and `Handoff` (the trait is still synchronous and provisional);
 - behind the `test-support` feature, `TestExecutor`, fixtures, the test catalog (`test.echo`), and `PermitAllForTests`, the only permissive policy.
 
@@ -21,7 +22,9 @@ In-memory only: `MemoryStorage` and the decision log lose everything on restart;
 
 Known limits of GKO-64: `Cancel` and `cancelled` do not exist (`cancelled` events are an invalid transition); terminal-detail enrichment is not decided, so a repeated terminal outcome changes nothing; an executor event is trusted by token possession alone (no executor authentication); if recording a handoff result fails after the executor received the work, the execution stays `pending` and the caller must record `Handoff::Ambiguous` (`Acceptor::record_handoff`) instead of dispatching again; simultaneous different outcomes on one `event_seq` resolve by lock order, so the winner is not deterministic for the executor. Snapshots are not delivered anywhere yet.
 
-Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); Get and Observe (GKO-65), durable storage, Zenoh adapter. The in-memory decision log is not durable audit.
+Known limits of GKO-65: one lock serializes every publication and attach across all executions; only the starting subject may read (choice O1, awaiting confirmation with O2–O4 in status §2.5); a released report cannot come back; there is no full history, only the latest snapshot plus gap disclosure; Observe is an in-process stream, not yet a Zenoh mapping.
+
+Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); durable storage, Zenoh adapter. The in-memory decision log is not durable audit.
 
 Dependencies: `serde` and `uuid` (`v4`); `serde_json` for tests only. Number comparison is spelling-sensitive (`1` differs from `1.0`), per decision Z4.
 
@@ -41,6 +44,7 @@ crates/operations/
 │   ├── executor.rs
 │   ├── identity.rs
 │   ├── lifecycle.rs
+│   ├── observe.rs
 │   ├── report.rs
 │   ├── request.rs
 │   ├── value.rs
@@ -49,7 +53,8 @@ crates/operations/
 │   ├── acceptance.rs
 │   ├── contracts.rs
 │   ├── harness.rs
-│   └── lifecycle.rs
+│   ├── lifecycle.rs
+│   └── observe.rs
 └── examples/
     └── smoke.rs
 ```

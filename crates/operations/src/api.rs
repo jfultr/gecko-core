@@ -152,14 +152,33 @@ pub enum GetResponse {
     Error(ServiceError),
 }
 
+/// Intermediate snapshots an observer did not receive; both ends are inclusive.
+///
+/// Full history is not promised: the gap says which numbers were skipped, not
+/// what they contained.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Gap {
+    /// First `sequence` that was not delivered.
+    pub first_missed: u64,
+    /// Last `sequence` that was not delivered.
+    pub last_missed: u64,
+}
+
 /// Typed outcome of attaching with Observe.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ObserveResponse {
-    /// Attached; `current` is the snapshot at attach time. Later snapshots follow.
+    /// Attached. Snapshots newer than `sequence` follow on the stream.
     Attached {
-        /// Snapshot at attach time.
-        current: Box<Report>,
+        /// Latest snapshot at attach time. `None` when the request's
+        /// `after_sequence` already covers it, so nothing is redelivered.
+        current: Option<Box<Report>>,
+        /// `sequence` of the latest snapshot at attach time.
+        sequence: u64,
+        /// Snapshots after `after_sequence` that will not be delivered; present
+        /// only when the observer resumed and missed intermediate snapshots.
+        /// `current` is still the latest available snapshot.
+        gap: Option<Gap>,
     },
     /// Nothing can be observed by this caller.
     Unavailable(Unavailable),
