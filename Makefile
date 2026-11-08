@@ -4,7 +4,7 @@
 
 CARGO ?= cargo
 
-.PHONY: all build test fmt-check clippy smoke demo docs-check articles-check hooks check
+.PHONY: all build test matrix fmt-check clippy smoke demo docs-check articles-check hooks check
 
 all: check
 
@@ -14,6 +14,11 @@ build:
 
 test:
 	$(CARGO) test --locked --workspace --all-features
+
+# The P1-P6 checks only (GKO-67): Core directly and through Zenoh.
+matrix:
+	$(CARGO) test --locked -p operations --all-features --test acceptance --test contracts --test dispatch --test lifecycle --test observe
+	$(CARGO) test --locked -p operations-zenoh --features test-support --test matrix --test scenario
 
 fmt-check:
 	$(CARGO) fmt --all -- --check

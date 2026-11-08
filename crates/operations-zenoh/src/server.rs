@@ -58,6 +58,7 @@ struct Shared<A, L, S> {
     stop: AtomicBool,
     observers: AtomicUsize,
     start_delay_ms: AtomicU64,
+    observe_paused: AtomicBool,
 }
 
 /// A running server. Dropping it stops serving and closes the session.
@@ -113,6 +114,7 @@ where
             config,
             stop: AtomicBool::new(false),
             observers: AtomicUsize::new(0),
+            observe_paused: AtomicBool::new(false),
             start_delay_ms: AtomicU64::new(
                 u64::try_from(config_delay.as_millis()).unwrap_or(u64::MAX),
             ),
@@ -167,6 +169,13 @@ where
     pub fn set_start_reply_delay(&self, delay: Duration) {
         let millis = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX);
         self.shared.start_delay_ms.store(millis, Ordering::SeqCst);
+    }
+
+    /// Test hook: while paused, attached Observe streams stop reading Core's
+    /// stream, so an observer falls behind deterministically. Streams still end
+    /// at their lease. Unpausing resumes delivery of what was buffered.
+    pub fn set_observe_paused(&self, paused: bool) {
+        self.shared.observe_paused.store(paused, Ordering::SeqCst);
     }
 
     /// Stops serving and closes the Zenoh session.
@@ -308,6 +317,22 @@ where
         };
         let lease_ends = Instant::now() + self.config.observe_lease;
         loop {
+            if self.observe_paused.load(Ordering::SeqCst) {
+                if self.stop.load(Ordering::SeqCst) {
+                    return;
+                }
+                if Instant::now() >= lease_ends {
+                    self.send(
+                        query,
+                        &ObserveFrame::End {
+                            reason: EndReason::Lease,
+                        },
+                    );
+                    return;
+                }
+                thread::sleep(POLL);
+                continue;
+            }
             let frame = match stream.next_timeout(POLL) {
                 Poll::Snapshot(report) => ObserveFrame::Snapshot { report },
                 Poll::Ended(end) => {

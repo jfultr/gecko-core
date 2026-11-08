@@ -48,6 +48,8 @@ Verified by `make demo` and `tests/scenario.rs` against Zenoh `1.10.2` on one ho
 
 Deliberately breaking the server to ignore `after` fails step 5, so the scenario detects that defect. Not measured or not done: more than one host, multi-hop routing, half-open links, restart of the Gecko, slow observers through Zenoh (covered at Core level), and load.
 
+The P1–P6 evidence matrix, the extra checks in `tests/matrix.rs` (`make matrix`), and the runbook are in the [validation page](../../docs-modules/operation/validation-0.1.0.md). `Server::set_observe_paused` is a test hook that stops Observe streams reading Core so an observer lags deterministically.
+
 ## Restricted deployment limits
 
 - **Identity is configuration, not authentication.** `ServerConfig::caller` is applied to every request. Any participant that can reach the endpoint acts as that subject, so use this only on a trusted local host. Production identity and authorization belong to `0.5.0` and the [security gate](../../docs-modules/operation/spec/security.md).
@@ -72,6 +74,7 @@ crates/operations-zenoh/
 │   ├── proxy.rs     cuttable TCP proxy (test-support)
 │   └── demo.rs      the scripted scenario (test-support)
 ├── tests/follow.rs      follow gives up with the lease end reason
+├── tests/matrix.rs      P1–P6 checks through Zenoh (GKO-67)
 ├── tests/scenario.rs
 └── examples/demo.rs
 ```
