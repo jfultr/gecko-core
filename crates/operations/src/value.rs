@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// A finite 64-bit float with total equality (compared by bit pattern).
@@ -47,7 +48,10 @@ impl<'de> Deserialize<'de> for FiniteF64 {
 }
 
 /// A typed structured value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Deserialization is strict: an integer outside the `i64` range is an error
+/// instead of silently becoming a float.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum Value {
     /// Absence of a value.
@@ -83,6 +87,76 @@ impl Value {
             Self::List(_) => ValueKind::List,
             Self::Map(_) => ValueKind::Map,
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ValueVisitor;
+
+        impl<'de> Visitor<'de> for ValueVisitor {
+            type Value = Value;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a null, bool, i64 integer, finite float, string, list, or map")
+            }
+
+            fn visit_unit<E: de::Error>(self) -> Result<Value, E> {
+                Ok(Value::Null)
+            }
+
+            fn visit_none<E: de::Error>(self) -> Result<Value, E> {
+                Ok(Value::Null)
+            }
+
+            fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Value, D::Error> {
+                Value::deserialize(d)
+            }
+
+            fn visit_bool<E: de::Error>(self, v: bool) -> Result<Value, E> {
+                Ok(Value::Bool(v))
+            }
+
+            fn visit_i64<E: de::Error>(self, v: i64) -> Result<Value, E> {
+                Ok(Value::Integer(v))
+            }
+
+            fn visit_u64<E: de::Error>(self, v: u64) -> Result<Value, E> {
+                i64::try_from(v)
+                    .map(Value::Integer)
+                    .map_err(|_| E::custom("integer is outside the i64 range"))
+            }
+
+            fn visit_f64<E: de::Error>(self, v: f64) -> Result<Value, E> {
+                Value::float(v).ok_or_else(|| E::custom("float must be finite"))
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Value, E> {
+                Ok(Value::Text(v.to_string()))
+            }
+
+            fn visit_string<E: de::Error>(self, v: String) -> Result<Value, E> {
+                Ok(Value::Text(v))
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Value, A::Error> {
+                let mut items = Vec::new();
+                while let Some(item) = seq.next_element()? {
+                    items.push(item);
+                }
+                Ok(Value::List(items))
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Value, A::Error> {
+                let mut entries = BTreeMap::new();
+                while let Some((key, value)) = map.next_entry::<String, Value>()? {
+                    entries.insert(key, value);
+                }
+                Ok(Value::Map(entries))
+            }
+        }
+
+        deserializer.deserialize_any(ValueVisitor)
     }
 }
 

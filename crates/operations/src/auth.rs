@@ -11,6 +11,10 @@
 //! the `test-support` feature (see `testing::PermitAllForTests`) and makes no
 //! production security claim. In-memory records are not persisted audit.
 
+use crate::api::{
+    GetResponse, ObserveResponse, Rejection, RejectionCode, ServiceError, StartResponse,
+    Unavailable,
+};
 use crate::executor::{ExecutionToken, Executor, Handoff};
 use crate::identity::{CallerContext, OperationId, RequestId, Subject};
 use crate::request::{OperationType, Target};
@@ -141,13 +145,55 @@ pub enum Refusal {
     NotRecorded(LogError),
 }
 
+impl Refusal {
+    /// Maps the refusal to the Start outcome. The authorizer's reason stays in
+    /// the decision record and is not sent to the caller.
+    pub fn start_response(&self) -> StartResponse {
+        match self {
+            Self::Denied { .. } | Self::Unknown { .. } => StartResponse::Rejected(Rejection::new(
+                RejectionCode::Denied,
+                "the request is not authorized",
+                Vec::new(),
+            )),
+            Self::NotRecorded(_) => StartResponse::Error(Self::service_error()),
+        }
+    }
+
+    /// Maps the refusal to the Get outcome. A denial looks like absence (Z5).
+    pub fn get_response(&self) -> GetResponse {
+        match self {
+            Self::Denied { .. } | Self::Unknown { .. } => GetResponse::Unavailable(Unavailable {}),
+            Self::NotRecorded(_) => GetResponse::Error(Self::service_error()),
+        }
+    }
+
+    /// Maps the refusal to the Observe outcome. A denial looks like absence (Z5).
+    pub fn observe_response(&self) -> ObserveResponse {
+        match self {
+            Self::Denied { .. } | Self::Unknown { .. } => {
+                ObserveResponse::Unavailable(Unavailable {})
+            }
+            Self::NotRecorded(_) => ObserveResponse::Error(Self::service_error()),
+        }
+    }
+
+    fn service_error() -> ServiceError {
+        ServiceError {
+            message: "the decision could not be recorded; no work was started".to_string(),
+        }
+    }
+}
+
 /// Proof that a command was permitted and the decision was preserved.
 ///
-/// Only [`Guard::check`] creates one.
+/// Only [`Guard::check`] creates one. It remembers the command it was issued
+/// for, and [`hand_off`] consumes it, so a permit for one command cannot start
+/// work for another or be reused.
 #[derive(Debug)]
 pub struct Authorized {
     index: u64,
     subject: Subject,
+    command: Command,
 }
 
 impl Authorized {
@@ -159,6 +205,11 @@ impl Authorized {
     /// Subject the decision concerns.
     pub fn subject(&self) -> &Subject {
         &self.subject
+    }
+
+    /// The command this proof was issued for.
+    pub fn command(&self) -> &Command {
+        &self.command
     }
 }
 
@@ -208,6 +259,7 @@ impl<A: Authorizer, L: DecisionLog> Guard<A, L> {
             Decision::Permit => Ok(Authorized {
                 index,
                 subject: caller.subject().clone(),
+                command: command.clone(),
             }),
             Decision::Deny { reason } => Err(Refusal::Denied { reason }),
             Decision::Unknown { reason } => Err(Refusal::Unknown { reason }),
@@ -215,11 +267,21 @@ impl<A: Authorizer, L: DecisionLog> Guard<A, L> {
     }
 }
 
-/// Hands an execution to `executor`; requires the proof of a recorded permit.
+/// The proof given to [`hand_off`] was not issued for a Start command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrongCommand;
+
+/// Hands an execution to `executor`; requires the proof of a recorded Start permit.
+///
+/// The proof is consumed. A proof issued for Get or Observe is refused and
+/// nothing reaches the executor.
 pub fn hand_off(
-    _proof: &Authorized,
+    proof: Authorized,
     executor: &mut dyn Executor,
     token: &ExecutionToken,
-) -> Handoff {
-    executor.hand_off(token)
+) -> Result<Handoff, WrongCommand> {
+    match proof.command {
+        Command::Start { .. } => Ok(executor.hand_off(token)),
+        Command::Get { .. } | Command::Observe { .. } => Err(WrongCommand),
+    }
 }

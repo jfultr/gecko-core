@@ -33,7 +33,7 @@ pub use api::{
 };
 pub use auth::{
     Authorized, Authorizer, Command, Decision, DecisionLog, DecisionRecord, DenyAll, Guard,
-    MemoryDecisionLog, Refusal,
+    MemoryDecisionLog, Refusal, WrongCommand,
 };
 pub use executor::{ExecutionToken, Executor, Handoff};
 pub use identity::{CallerContext, OperationId, RequestId, Subject};
