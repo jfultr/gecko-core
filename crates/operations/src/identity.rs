@@ -91,10 +91,11 @@ uuid_v4_id! {
 pub struct Subject(String);
 
 impl Subject {
-    /// Creates a subject, or `None` for an empty or whitespace-only name.
+    /// Creates a subject, or `None` for an empty name or one with leading or
+    /// trailing whitespace, so spellings of one subject cannot split its retry scope.
     pub fn new(name: impl Into<String>) -> Option<Self> {
         let name = name.into();
-        (!name.trim().is_empty()).then_some(Self(name))
+        (!name.is_empty() && name.trim() == name).then_some(Self(name))
     }
 
     /// Returns the subject name.

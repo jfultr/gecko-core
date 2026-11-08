@@ -320,8 +320,8 @@ fn handoff_requires_a_recorded_permit() {
     let mut executor = operations::testing::TestExecutor::new();
     let token = fixtures::execution_token(1);
     assert_eq!(
-        auth::hand_off(&proof, &mut executor, &token),
-        Handoff::Acknowledged
+        auth::hand_off(proof, &mut executor, &token),
+        Ok(Handoff::Acknowledged)
     );
     assert_eq!(executor.dispatched().len(), 1);
 
@@ -333,6 +333,71 @@ fn handoff_requires_a_recorded_permit() {
             .is_err()
     );
     assert_eq!(executor.dispatched().len(), 1);
+}
+
+#[test]
+fn proof_for_another_command_does_not_open_handoff() {
+    let mut guard = Guard::new(PermitAllForTests::new(), MemoryDecisionLog::new());
+    let id = OperationId::generate();
+    let mut executor = operations::testing::TestExecutor::new();
+    let token = fixtures::execution_token(1);
+    for command in [
+        Command::Get { operation_id: id },
+        Command::Observe { operation_id: id },
+    ] {
+        let proof = guard.check(&caller("alice"), &command).unwrap();
+        assert_eq!(
+            auth::hand_off(proof, &mut executor, &token),
+            Err(operations::WrongCommand)
+        );
+    }
+    assert!(executor.dispatched().is_empty());
+}
+
+#[test]
+fn refusals_map_to_typed_responses_without_leaking_the_reason() {
+    let mut guard = Guard::new(DenyAll, MemoryDecisionLog::new());
+    let request = echo_request("hi");
+    let id = OperationId::generate();
+
+    let refusal = guard
+        .check(&caller("alice"), &start_command(&request))
+        .unwrap_err();
+    let StartResponse::Rejected(rejection) = refusal.start_response() else {
+        panic!("expected a rejection");
+    };
+    assert_eq!(rejection.code, RejectionCode::Denied);
+    assert!(!rejection.message.contains("policy"));
+
+    let refusal = guard
+        .check(&caller("alice"), &Command::Get { operation_id: id })
+        .unwrap_err();
+    assert_eq!(
+        refusal.get_response(),
+        GetResponse::Unavailable(Unavailable {})
+    );
+    assert_eq!(
+        refusal.observe_response(),
+        ObserveResponse::Unavailable(Unavailable {})
+    );
+
+    let mut failing = Guard::new(PermitAllForTests::new(), FailingLog);
+    let refusal = failing
+        .check(&caller("alice"), &start_command(&request))
+        .unwrap_err();
+    assert!(matches!(refusal.start_response(), StartResponse::Error(_)));
+}
+
+#[test]
+fn out_of_range_integers_and_padded_subjects_are_rejected() {
+    assert!(serde_json::from_str::<Value>("18446744073709551615").is_err());
+    assert!(matches!(
+        serde_json::from_str::<Value>("9223372036854775807"),
+        Ok(Value::Integer(i64::MAX))
+    ));
+    assert!(operations::Subject::new(" alice").is_none());
+    assert!(operations::Subject::new("alice ").is_none());
+    assert!(operations::Subject::new("alice").is_some());
 }
 
 // ---- report independence ----

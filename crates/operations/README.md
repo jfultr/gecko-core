@@ -11,11 +11,11 @@ Implemented (GKO-62, OP-A4):
 - transport-neutral Start, Get, and Observe inputs and typed outcomes (accepted, rejected, unavailable, invalid input, error) and the full report types (`api`, `report`);
 - UUIDv4 `RequestId` and `OperationId`, and a `CallerContext` that adapters build and that cannot be deserialized from a payload (`identity`);
 - request validation against a `Catalog`, normalized `RequestFingerprint`, subject-scoped `RetryKey`, and `RetryClass` (`request`, `value`);
-- an authorization hook: `Guard` calls the `Authorizer` for every command, records the decision, and returns an `Authorized` proof that `auth::hand_off` requires; it fails closed on denial, unknown decision, or log failure, and the default policy is `DenyAll` (`auth`);
+- an authorization hook: `Guard` calls the `Authorizer` for every command, records the decision, and returns an `Authorized` proof that `auth::hand_off` consumes and accepts only for Start; `Refusal` maps to typed responses without exposing the authorizer's reason (the adapter must authorize before validating); it fails closed on denial, unknown decision, or log failure, and the default policy is `DenyAll` (`auth`);
 - a provisional `Executor` trait, `ExecutionToken`, and `Handoff`;
 - behind the `test-support` feature, `TestExecutor`, fixtures, the test catalog (`test.echo`), and `PermitAllForTests`, the only permissive policy.
 
-Not implemented: atomic acceptance and retry index (GKO-63), state machine, snapshots, storage, Zenoh adapter. The in-memory decision log is not durable audit.
+Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); atomic acceptance and retry index (GKO-63), state machine, snapshots, storage, Zenoh adapter. The in-memory decision log is not durable audit.
 
 Dependencies: `serde` and `uuid` (`v4`); `serde_json` for tests only. Number comparison is spelling-sensitive (`1` differs from `1.0`), per decision Z4.
 
