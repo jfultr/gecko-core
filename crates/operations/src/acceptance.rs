@@ -41,8 +41,12 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::api::{ObservationAddress, Rejection, RejectionCode, ServiceError, StartResponse};
-use crate::auth::{Authorized, Authorizer, Command, DecisionLog, Guard};
+use crate::auth::{self, Authorized, Authorizer, Command, DecisionLog, Guard};
+use crate::executor::{ExecutionToken, Executor};
 use crate::identity::{CallerContext, OperationId, Subject};
+use crate::lifecycle::{
+    EventLog, ExecutorEvent, Notified, NotifyRejection, apply_event, apply_handoff,
+};
 use crate::report::{Operation, Report, State, Timestamp};
 use crate::request::{Catalog, RequestFingerprint, RetryClass, RetryKey, StartRequest};
 use crate::value::Value;
@@ -64,6 +68,10 @@ pub struct AcceptedOperation {
     /// Index of the decision record that permitted the Start which created this
     /// execution.
     pub decision_index: u64,
+    /// Token handed to the executor; identifies this execution in its events.
+    pub token: ExecutionToken,
+    /// Executor events accepted so far, for duplicate recognition.
+    pub events: EventLog,
 }
 
 /// The commit could not be performed; nothing was stored.
@@ -99,12 +107,28 @@ pub trait Storage: Send + Sync {
 
     /// Returns the committed execution `id`, if any.
     fn operation(&self, id: &OperationId) -> Result<Option<AcceptedOperation>, CommitError>;
+
+    /// Returns the execution that was issued `token`, if any.
+    fn operation_for_token(
+        &self,
+        token: &ExecutionToken,
+    ) -> Result<Option<OperationId>, CommitError>;
+
+    /// Applies `change` to the record of `id` while no other change to any
+    /// record runs, and returns whether the record exists. `change` must leave
+    /// the record untouched when it decides to reject.
+    fn update(
+        &self,
+        id: &OperationId,
+        change: &mut dyn FnMut(&mut AcceptedOperation),
+    ) -> Result<bool, CommitError>;
 }
 
 #[derive(Debug, Default)]
 struct Inner {
     mappings: HashMap<RetryKey, (RequestFingerprint, OperationId)>,
     operations: HashMap<OperationId, AcceptedOperation>,
+    tokens: HashMap<ExecutionToken, OperationId>,
 }
 
 /// In-memory [`Storage`]. Not durable: a restart loses everything.
@@ -183,6 +207,7 @@ impl Storage for MemoryStorage {
         }
         let id = candidate.operation.id;
         state.mappings.insert(key, (fingerprint, id));
+        state.tokens.insert(candidate.token.clone(), id);
         state.operations.insert(id, candidate.clone());
         Ok(Acceptance::Created(candidate))
     }
@@ -190,6 +215,23 @@ impl Storage for MemoryStorage {
     fn operation(&self, id: &OperationId) -> Result<Option<AcceptedOperation>, CommitError> {
         let state = self.state.lock().map_err(poisoned)?;
         Ok(state.operations.get(id).cloned())
+    }
+
+    fn operation_for_token(
+        &self,
+        token: &ExecutionToken,
+    ) -> Result<Option<OperationId>, CommitError> {
+        let state = self.state.lock().map_err(poisoned)?;
+        Ok(state.tokens.get(token).copied())
+    }
+
+    fn update(
+        &self,
+        id: &OperationId,
+        change: &mut dyn FnMut(&mut AcceptedOperation),
+    ) -> Result<bool, CommitError> {
+        let mut state = self.state.lock().map_err(poisoned)?;
+        Ok(state.operations.get_mut(id).map(change).is_some())
     }
 }
 
@@ -237,6 +279,17 @@ impl StartOutcome {
             message: message.to_string(),
         }))
     }
+}
+
+/// [`Acceptor::dispatch`] could not complete.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DispatchError {
+    /// The authorization proof was not issued for Start; nothing reached the executor.
+    WrongCommand,
+    /// The execution record could not be read.
+    Unavailable,
+    /// The handoff result could not be recorded; see [`Acceptor::dispatch`].
+    Rejected(NotifyRejection),
 }
 
 type Clock = Box<dyn Fn() -> Timestamp + Send + Sync>;
@@ -353,6 +406,91 @@ where
         }
     }
 
+    /// Hands a newly created execution to `executor` and records the result.
+    ///
+    /// Consumes the [`Dispatch`], so one acceptance hands off at most once and
+    /// Core never redispatches. An acknowledged handoff makes the execution
+    /// `running`; an ambiguous one makes it `unknown`; a refusal proven to
+    /// precede any side effect makes it `failed`. The handoff runs without any
+    /// storage lock held.
+    ///
+    /// If the result cannot be recorded, the execution stays `pending` while
+    /// the executor may already hold it; call [`Acceptor::record_handoff`]
+    /// with [`Handoff::Ambiguous`](crate::executor::Handoff::Ambiguous) rather
+    /// than dispatching again.
+    ///
+    /// # Errors
+    ///
+    /// [`DispatchError`] when the proof is not for Start, the execution is
+    /// missing, or the result could not be recorded.
+    pub fn dispatch(
+        &self,
+        dispatch: Dispatch,
+        executor: &mut dyn Executor,
+    ) -> Result<Notified, DispatchError> {
+        let (proof, id) = dispatch.into_parts();
+        let accepted = self
+            .storage
+            .operation(&id)
+            .map_err(|_| DispatchError::Unavailable)?
+            .ok_or(DispatchError::Unavailable)?;
+        let handoff = auth::hand_off(proof, executor, &accepted.token)
+            .map_err(|_| DispatchError::WrongCommand)?;
+        self.record_handoff(&id, &handoff)
+            .map_err(DispatchError::Rejected)
+    }
+
+    /// Records the result of a handoff of execution `id`.
+    ///
+    /// # Errors
+    ///
+    /// [`NotifyRejection`] when the result contradicts the recorded state or
+    /// storage cannot apply it.
+    pub fn record_handoff(
+        &self,
+        id: &OperationId,
+        handoff: &crate::executor::Handoff,
+    ) -> Result<Notified, NotifyRejection> {
+        let now = (self.clock)();
+        let mut result = Err(NotifyRejection::UnknownToken);
+        let found = self
+            .storage
+            .update(id, &mut |op| result = apply_handoff(op, handoff, now))
+            .map_err(|_| NotifyRejection::Unavailable)?;
+        if found {
+            result
+        } else {
+            Err(NotifyRejection::UnknownToken)
+        }
+    }
+
+    /// Validates and applies one executor notification.
+    ///
+    /// The token is the executor's credential for its own execution: Core
+    /// accepts events only for tokens it issued.
+    ///
+    /// # Errors
+    ///
+    /// [`NotifyRejection`] describing why the event changed nothing.
+    pub fn notify(&self, event: &ExecutorEvent) -> Result<Notified, NotifyRejection> {
+        let id = self
+            .storage
+            .operation_for_token(&event.token)
+            .map_err(|_| NotifyRejection::Unavailable)?
+            .ok_or(NotifyRejection::UnknownToken)?;
+        let now = (self.clock)();
+        let mut result = Err(NotifyRejection::UnknownToken);
+        let found = self
+            .storage
+            .update(&id, &mut |op| result = apply_event(op, event, now))
+            .map_err(|_| NotifyRejection::Unavailable)?;
+        if found {
+            result
+        } else {
+            Err(NotifyRejection::UnknownToken)
+        }
+    }
+
     fn candidate(
         &self,
         caller: &CallerContext,
@@ -390,6 +528,8 @@ where
             observation: (self.addressing)(id),
             snapshot,
             decision_index,
+            token: ExecutionToken::generate(),
+            events: EventLog::default(),
         }
     }
 }

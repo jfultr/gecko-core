@@ -4,8 +4,9 @@
 //! Observe inputs and outcomes, full reports), UUIDv4 identities, request
 //! validation and retry comparison, the authorization hook with decision
 //! records, and the provisional executor contract. It has no dependency on
-//! Zenoh, Probe, App, or other domain entities. Atomic acceptance, storage, the
-//! state machine, and the transport adapter are not implemented yet. The
+//! Zenoh, Probe, App, or other domain entities. Executor handoff, event
+//! arbitration, and Core-numbered snapshots are in memory. Get, Observe,
+//! durable storage, and the transport adapter are not implemented yet. The
 //! contract is owned by `docs-modules/operation/spec/model.md`.
 
 /// Atomic acceptance and safe retry of Start.
@@ -18,6 +19,8 @@ pub mod auth;
 pub mod executor;
 /// Request and execution identities and the trusted caller context.
 pub mod identity;
+/// Executor events and Core arbitration.
+pub mod lifecycle;
 /// Full Operation Report types.
 pub mod report;
 /// Start request, validation catalog, and retry comparison.
@@ -30,8 +33,8 @@ pub mod value;
 pub mod testing;
 
 pub use acceptance::{
-    Acceptance, AcceptedOperation, Acceptor, CommitError, Dispatch, MemoryStorage, StartOutcome,
-    Storage,
+    Acceptance, AcceptedOperation, Acceptor, CommitError, Dispatch, DispatchError, MemoryStorage,
+    StartOutcome, Storage,
 };
 pub use api::{
     GetRequest, GetResponse, InputError, ObservationAddress, ObserveRequest, ObserveResponse,
@@ -43,6 +46,7 @@ pub use auth::{
 };
 pub use executor::{ExecutionToken, Executor, Handoff};
 pub use identity::{CallerContext, OperationId, RequestId, Subject};
+pub use lifecycle::{EventKind, EventLog, ExecutorEvent, Notified, NotifyRejection, Outcome};
 pub use report::{Blocker, Operation, ProposedAction, Report, State};
 pub use request::{
     Catalog, OperationSpec, OperationType, ParameterSpec, RequestFingerprint, RetryClass, RetryKey,
