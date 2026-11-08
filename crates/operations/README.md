@@ -12,10 +12,13 @@ Implemented (GKO-62, OP-A4):
 - UUIDv4 `RequestId` and `OperationId`, and a `CallerContext` that adapters build and that cannot be deserialized from a payload (`identity`);
 - request validation against a `Catalog`, normalized `RequestFingerprint`, subject-scoped `RetryKey`, and `RetryClass` (`request`, `value`);
 - an authorization hook: `Guard` calls the `Authorizer` for every command, records the decision, and returns an `Authorized` proof that `auth::hand_off` consumes and accepts only for Start; `Refusal` maps to typed responses without exposing the authorizer's reason (the adapter must authorize before validating); it fails closed on denial, unknown decision, or log failure, and the default policy is `DenyAll` (`auth`);
+- atomic acceptance (GKO-63, OP-A5): `Acceptor::start` authorizes and records the decision, validates, then commits the retry mapping, the execution record, and the initial `pending` snapshot (sequence 1) in one `Storage::accept` call; same-content retries return the earlier operation, changed content is an `identifier_conflict` that leaves the original unchanged, and only a request that created the execution gets a `Dispatch` (`acceptance`);
 - a provisional `Executor` trait, `ExecutionToken`, and `Handoff`;
 - behind the `test-support` feature, `TestExecutor`, fixtures, the test catalog (`test.echo`), and `PermitAllForTests`, the only permissive policy.
 
-Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); atomic acceptance and retry index (GKO-63), state machine, snapshots, storage, Zenoh adapter. The in-memory decision log is not durable audit.
+In-memory only: `MemoryStorage` and the decision log lose everything on restart; there is no restart durability in `0.1.0` (durable accounting is `0.3.0`). The observation address `operations/<id>/observe` is provisional until the Observe mapping is chosen.
+
+Not implemented: size limits for target, parameters, and trace (to be set with the transport adapter); executor handoff and snapshots (GKO-64), state machine, snapshots, storage, Zenoh adapter. The in-memory decision log is not durable audit.
 
 Dependencies: `serde` and `uuid` (`v4`); `serde_json` for tests only. Number comparison is spelling-sensitive (`1` differs from `1.0`), per decision Z4.
 
@@ -29,6 +32,7 @@ crates/operations/
 ├── README.md
 ├── src/
 │   ├── lib.rs
+│   ├── acceptance.rs
 │   ├── api.rs
 │   ├── auth.rs
 │   ├── executor.rs
@@ -38,6 +42,7 @@ crates/operations/
 │   ├── value.rs
 │   └── testing.rs
 ├── tests/
+│   ├── acceptance.rs
 │   ├── contracts.rs
 │   └── harness.rs
 └── examples/

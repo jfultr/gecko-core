@@ -8,6 +8,8 @@
 //! state machine, and the transport adapter are not implemented yet. The
 //! contract is owned by `docs-modules/operation/spec/model.md`.
 
+/// Atomic acceptance and safe retry of Start.
+pub mod acceptance;
 /// Typed Start, Get, and Observe inputs and outcomes.
 pub mod api;
 /// Authorization hook and decision records.
@@ -27,6 +29,10 @@ pub mod value;
 #[cfg(feature = "test-support")]
 pub mod testing;
 
+pub use acceptance::{
+    Acceptance, AcceptedOperation, Acceptor, CommitError, Dispatch, MemoryStorage, StartOutcome,
+    Storage,
+};
 pub use api::{
     GetRequest, GetResponse, InputError, ObservationAddress, ObserveRequest, ObserveResponse,
     Rejection, RejectionCode, ServiceError, StartResponse, Unavailable, Violation,
