@@ -11,6 +11,7 @@ Current version: [`0.1.0-dev`](VERSION). Start, Get, and Observe are implemented
 - [Model and boundaries](spec/model.md) — the authoritative common contract, responsibilities, lifecycle, reports, accounting, and validation.
 - [Decision status](spec/status.md) — accepted decisions, open questions, and links to their original context.
 - [Working roadmap](spec/roadmap.md) — the accepted first-experiment order from `0.1.0` to `0.3.0`, later `0.x` targets, and directions through `3.0.0`; no release is implemented yet.
+- [Validation `0.1.0-dev`](validation-0.1.0.md) — P1–P6 evidence matrix, deterministic controls, operator runbook, gaps, and the unsigned human acceptance checklist.
 - [Security](spec/security.md) — required areas of security work and the admission gate for `1.0.0`.
 
 ## Code

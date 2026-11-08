@@ -58,6 +58,9 @@ struct Shared<A, L, S> {
     stop: AtomicBool,
     observers: AtomicUsize,
     start_delay_ms: AtomicU64,
+    observe_paused: AtomicBool,
+    /// Observe streams that have seen the pause and stopped reading Core.
+    paused_streams: AtomicUsize,
 }
 
 /// A running server. Dropping it stops serving and closes the session.
@@ -113,6 +116,8 @@ where
             config,
             stop: AtomicBool::new(false),
             observers: AtomicUsize::new(0),
+            observe_paused: AtomicBool::new(false),
+            paused_streams: AtomicUsize::new(0),
             start_delay_ms: AtomicU64::new(
                 u64::try_from(config_delay.as_millis()).unwrap_or(u64::MAX),
             ),
@@ -167,6 +172,22 @@ where
     pub fn set_start_reply_delay(&self, delay: Duration) {
         let millis = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX);
         self.shared.start_delay_ms.store(millis, Ordering::SeqCst);
+    }
+
+    /// Test hook: while paused, attached Observe streams stop reading Core's
+    /// stream, so an observer falls behind deterministically. Streams still end
+    /// at their lease. Unpausing resumes delivery of what was buffered.
+    #[cfg(feature = "test-support")]
+    pub fn set_observe_paused(&self, paused: bool) {
+        self.shared.observe_paused.store(paused, Ordering::SeqCst);
+    }
+
+    /// Test hook: how many attached Observe streams have seen the pause and
+    /// stopped reading Core. Wait for it instead of sleeping after pausing.
+    #[cfg(feature = "test-support")]
+    #[must_use]
+    pub fn observe_paused_streams(&self) -> usize {
+        self.shared.paused_streams.load(Ordering::SeqCst)
     }
 
     /// Stops serving and closes the Zenoh session.
@@ -307,8 +328,20 @@ where
             return;
         };
         let lease_ends = Instant::now() + self.config.observe_lease;
+        let mut pause = PauseMark {
+            count: &self.paused_streams,
+            paused: false,
+        };
         loop {
-            let frame = match stream.next_timeout(POLL) {
+            // A paused stream reads nothing from Core but keeps its stop and
+            // lease checks, exactly as an idle one.
+            let poll = if pause.set(self.observe_paused.load(Ordering::SeqCst)) {
+                thread::sleep(POLL);
+                Poll::Empty
+            } else {
+                stream.next_timeout(POLL)
+            };
+            let frame = match poll {
                 Poll::Snapshot(report) => ObserveFrame::Snapshot { report },
                 Poll::Ended(end) => {
                     self.send(query, &ObserveFrame::End { reason: end.into() });
@@ -334,5 +367,32 @@ where
                 return; // the observer is gone; dropping the stream detaches it
             }
         }
+    }
+}
+
+/// Counts one Observe stream in `count` while it honours the pause test hook.
+struct PauseMark<'a> {
+    count: &'a AtomicUsize,
+    paused: bool,
+}
+
+impl PauseMark<'_> {
+    /// Records whether the stream is paused now and returns it.
+    fn set(&mut self, paused: bool) -> bool {
+        if paused != self.paused {
+            if paused {
+                self.count.fetch_add(1, Ordering::SeqCst);
+            } else {
+                self.count.fetch_sub(1, Ordering::SeqCst);
+            }
+            self.paused = paused;
+        }
+        paused
+    }
+}
+
+impl Drop for PauseMark<'_> {
+    fn drop(&mut self) {
+        self.set(false);
     }
 }
