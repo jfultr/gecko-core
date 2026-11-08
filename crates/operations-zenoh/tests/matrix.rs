@@ -2,7 +2,7 @@
 //!
 //! Each test names the package it gives evidence for. The same rules are checked
 //! directly against Core in `crates/operations/tests`; the matrix that links the
-//! two is `docs-modules/operation/spec/validation.md`. Everything runs on one
+//! two is `docs-modules/operation/validation-0.1.0.md`. Everything runs on one
 //! host over loopback, with the executor in the Core process.
 
 use std::net::TcpListener;
@@ -16,8 +16,8 @@ use operations::testing::PermitAllForTests;
 use operations::testing::contract_fixtures::{caller, catalog, echo_request};
 use operations::{
     Acceptor, EventKind, ExecutionToken, Executor, ExecutorEvent, Follower, Gap, GetResponse,
-    Guard, Handoff, MemoryDecisionLog, MemoryStorage, ObserveResponse, Operation, OperationId,
-    Outcome, RejectionCode, StartResponse, Value,
+    Guard, Handoff, MemoryDecisionLog, MemoryStorage, NotifyRejection, ObserveResponse, Operation,
+    OperationId, Outcome, RejectionCode, StartResponse, Value,
 };
 use operations_zenoh::{
     Client, ClientConfig, EndReason, Followed, ObserveItem, Server, ServerConfig,
@@ -333,7 +333,12 @@ fn p2_p5_terminal_state_is_immutable_over_zenoh() {
         event_seq: 2,
         kind: finish(Outcome::Failed),
     });
-    assert!(conflicting.is_err(), "{conflicting:?}");
+    assert_eq!(
+        conflicting,
+        Err(NotifyRejection::ConflictingTerminal {
+            recorded: State::Succeeded
+        })
+    );
     let late = rig.core.notify(&ExecutorEvent {
         token,
         event_seq: 3,
@@ -342,7 +347,12 @@ fn p2_p5_terminal_state_is_immutable_over_zenoh() {
             result: None,
         },
     });
-    assert!(late.is_err(), "{late:?}");
+    assert_eq!(
+        late,
+        Err(NotifyRejection::InvalidTransition {
+            from: State::Succeeded
+        })
+    );
 
     assert_eq!(rig.report(operation.id), before);
     let followed = rig
@@ -470,9 +480,15 @@ fn p3_follow_survives_a_lagged_stream_and_ends_on_the_core_snapshot() {
     let held = rig.report(id);
     assert_eq!(held.state, State::Succeeded);
     assert_eq!(followed, Followed::Terminal(Box::new(held)));
-    assert!(
-        !gaps.lock().unwrap().is_empty(),
-        "the skipped snapshots were disclosed, not hidden"
+    // Snapshots 3 and 4 fit the buffer; 5 overflows it, so the stream ended
+    // lagged and the resume from 4 disclosed exactly 5..=6 before the terminal 7.
+    assert_eq!(
+        *gaps.lock().unwrap(),
+        vec![Gap {
+            first_missed: 5,
+            last_missed: 6
+        }],
+        "the stream lagged and the skipped snapshots were disclosed, not hidden"
     );
     rig.close();
 }

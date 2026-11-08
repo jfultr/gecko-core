@@ -174,6 +174,7 @@ where
     /// Test hook: while paused, attached Observe streams stop reading Core's
     /// stream, so an observer falls behind deterministically. Streams still end
     /// at their lease. Unpausing resumes delivery of what was buffered.
+    #[cfg(feature = "test-support")]
     pub fn set_observe_paused(&self, paused: bool) {
         self.shared.observe_paused.store(paused, Ordering::SeqCst);
     }
