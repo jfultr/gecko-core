@@ -15,7 +15,7 @@ Current version: [`0.1.0-dev`](VERSION). Only the Rust build and test harness sk
 
 ## Code
 
-The Rust implementation lives in the repository's root Cargo workspace rather than in this documentation center: [`crates/operations`](../../crates/operations/README.md). Run `make check` from the repository root. The crate README records commands, toolchain versions, and current limitations. The code layout is provisional; its open questions are in [decision status](spec/status.md#2-open-decisions).
+The Rust implementation lives in the repository's root Cargo workspace rather than in this documentation center: the transport-neutral Core in [`crates/operations`](../../crates/operations/README.md) and the minimal Zenoh adapter, client and demo in [`crates/operations-zenoh`](../../crates/operations-zenoh/README.md). Run `make check` from the repository root. The crate README records commands, toolchain versions, and current limitations. The code layout is provisional; its open questions are in [decision status](spec/status.md#2-open-decisions).
 
 ## Documentation ownership
 
