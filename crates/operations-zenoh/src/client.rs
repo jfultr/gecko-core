@@ -279,7 +279,9 @@ impl Client {
     /// # Errors
     ///
     /// [`FollowError`] when the server rejects the request or `reconnects`
-    /// attempts are used up.
+    /// attempts are used up. `GaveUp` carries the last reason: the no-answer
+    /// error of the last attempt, or `stream ended` with the end reason
+    /// (`Lagged`, `Lease`, `Closed`) when the last stream ended with an `end` frame.
     pub fn follow(
         &self,
         id: OperationId,
@@ -337,7 +339,11 @@ impl Client {
                     Ok(Some(ObserveItem::End(EndReason::Unavailable))) => {
                         return Ok(Followed::Unavailable);
                     }
-                    Ok(Some(ObserveItem::End(_))) => break, // lagged, lease, closed: resume
+                    Ok(Some(ObserveItem::End(reason))) => {
+                        // lagged, lease, closed: resume; `last` keeps the reason if no attempt succeeds.
+                        last = NoAnswer(format!("stream ended: {reason:?}"));
+                        break;
+                    }
                 }
             }
         }

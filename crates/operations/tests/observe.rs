@@ -547,3 +547,30 @@ fn handoff_publications_reach_observers_too() {
     let unknown = next(&stream);
     assert_eq!((unknown.state, unknown.sequence), (State::Unknown, 2));
 }
+
+#[test]
+fn dropped_observers_are_pruned_by_the_next_attach_without_a_publication() {
+    let core = acceptor();
+    let (id, token) = running(&core);
+    let dropped: Vec<Observation> = (0..50)
+        .map(|_| {
+            observe(&core, "alice", id, None)
+                .1
+                .expect("a stream while running")
+        })
+        .collect();
+    assert_eq!(core.observer_count(&id), 50);
+    drop(dropped);
+
+    // No snapshot is published in between: only the attach may prune.
+    let (_, live) = observe(&core, "alice", id, None);
+    let live = live.expect("a stream while running");
+    assert_eq!(core.observer_count(&id), 1);
+
+    // The remaining observer still receives a published snapshot.
+    assert_eq!(
+        core.notify(&progress(&token, 1)),
+        Ok(Notified::Applied { sequence: 3 })
+    );
+    assert_eq!(next(&live).sequence, 3);
+}

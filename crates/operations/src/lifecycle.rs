@@ -28,7 +28,9 @@
 //! | the recorded terminal outcome again | [`Notified::NoChange`] |
 //! | another terminal outcome after a terminal one | [`NotifyRejection::ConflictingTerminal`], number consumed |
 //! | `cancelled` (no Cancel before `0.2.0`) | [`NotifyRejection::InvalidTransition`], number consumed |
+//! | `event_seq` 0 | [`NotifyRejection::InvalidEventSeq`]; numbering starts at 1, nothing consumed |
 //! | unknown token | [`NotifyRejection::UnknownToken`] |
+//! | no execution with this id (`record_handoff`, `abandon`) | [`NotifyRejection::UnknownOperation`] |
 //!
 //! An event rejected by the transition rules (`InvalidTransition`,
 //! `ConflictingTerminal`) consumes its `event_seq` (decided by Farhat on
@@ -128,6 +130,10 @@ pub enum Notified {
 pub enum NotifyRejection {
     /// No execution was issued this token.
     UnknownToken,
+    /// No execution with this id exists.
+    UnknownOperation,
+    /// `event_seq` is 0; numbering starts at 1. Nothing is consumed.
+    InvalidEventSeq,
     /// This `event_seq` was already used with different content.
     Stale,
     /// `event_seq` skips a number; resend after the missing one.
@@ -257,6 +263,9 @@ pub(crate) fn apply_event(
     event: &ExecutorEvent,
     now: Timestamp,
 ) -> Result<Notified, NotifyRejection> {
+    if event.event_seq == 0 {
+        return Err(NotifyRejection::InvalidEventSeq);
+    }
     let last = op.events.last_event_seq;
     if event.event_seq <= last {
         return match op.events.consumed.get(&event.event_seq) {

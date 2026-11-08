@@ -20,7 +20,7 @@ Key prefix `gecko/g1/op` (provisional, configurable through `Keys`).
 
 The observation address Start returns is the Observe key (give `Keys::address` to `Acceptor::with_observation_address`). Every Operation outcome, including invalid input, is a typed `Ok` reply (Z3). A Zenoh error reply, zero replies, or a stream that closes without an `end` frame is "no answer" (`NoAnswer`). Retry is safe: Start with the same `request_id` creates at most one execution, and Observe resumes with the last `sequence` held. If the executor lock is poisoned, the server abandons the new execution, which becomes `failed` (nothing reached the executor). If the handoff result cannot be recorded even after Core's retries, the execution stays `pending`, the server logs it to stderr, and the Start reply is still the accepted one; a retry returns that execution and does not dispatch it again. Stream ends are `terminal`, `lagged`, `lease`, `unavailable`, or `closed`; all but the first two and `unavailable` mean "resume".
 
-`Server` runs Core on a peer session and hands every created execution to the executor given to it once. `Client` offers `start`, `start_retrying` (same `request_id`), `get`, `observe`, and `follow`, which follows an operation to its terminal state and reconnects with the last `sequence` after a lost link, `lagged`, or `lease`.
+`Server` runs Core on a peer session and hands every created execution to the executor given to it once. `Client` offers `start`, `start_retrying` (same `request_id`), `get`, `observe`, and `follow`, which follows an operation to its terminal state and reconnects with the last `sequence` after a lost link, `lagged`, or `lease`. When every attempt fails, `FollowError::GaveUp` carries the last reason: the no-answer error, or `stream ended: <reason>` when the last stream ended with an end frame.
 
 ## Run
 
@@ -71,6 +71,7 @@ crates/operations-zenoh/
 │   ├── client.rs    Client, NoAnswer, ObserveStream, follow
 │   ├── proxy.rs     cuttable TCP proxy (test-support)
 │   └── demo.rs      the scripted scenario (test-support)
+├── tests/follow.rs      follow gives up with the lease end reason
 ├── tests/scenario.rs
 └── examples/demo.rs
 ```

@@ -322,7 +322,7 @@ fn stale_out_of_order_and_unknown_events_are_rejected_without_change() {
     );
     assert_eq!(
         core.notify(&event(&token, 0, EventKind::Ack)),
-        Err(NotifyRejection::Stale)
+        Err(NotifyRejection::InvalidEventSeq)
     );
     assert_eq!(
         core.notify(&event(&fixtures::execution_token(1), 1, EventKind::Ack)),
@@ -475,7 +475,43 @@ fn recording_a_refusal_after_the_execution_ran_is_rejected() {
     assert_eq!(snapshot(&core, &id).state, State::Running);
     assert_eq!(
         core.record_handoff(&OperationId::generate(), &Handoff::Ambiguous),
+        Err(NotifyRejection::UnknownOperation)
+    );
+}
+
+#[test]
+fn a_missing_execution_and_an_unknown_token_are_different_rejections() {
+    let core = acceptor();
+    let (_, token, _dispatch) = started(&core);
+    assert_eq!(
+        core.record_handoff(&OperationId::generate(), &Handoff::Acknowledged),
+        Err(NotifyRejection::UnknownOperation)
+    );
+    assert_eq!(
+        core.notify(&event(&fixtures::execution_token(1), 1, EventKind::Ack)),
         Err(NotifyRejection::UnknownToken)
+    );
+    // A known token of a pending execution is still accepted.
+    assert_eq!(
+        core.notify(&event(&token, 1, EventKind::Ack)),
+        Ok(Notified::Applied { sequence: 2 })
+    );
+}
+
+#[test]
+fn event_seq_zero_is_invalid_and_consumes_nothing() {
+    let core = acceptor();
+    let (id, token) = running_with(&core, Handoff::Acknowledged);
+    let before = snapshot(&core, &id);
+    assert_eq!(
+        core.notify(&event(&token, 0, progress("zero", None))),
+        Err(NotifyRejection::InvalidEventSeq)
+    );
+    assert_eq!(snapshot(&core, &id), before);
+    // Number 1 is still the next one the executor may use.
+    assert_eq!(
+        core.notify(&event(&token, 1, progress("one", None))),
+        Ok(Notified::Applied { sequence: 3 })
     );
 }
 
