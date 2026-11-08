@@ -13,22 +13,30 @@
 //! outcome: a terminal state is immutable, and a different terminal outcome
 //! after a recorded one is rejected however it arrives.
 //!
-//! Rules (all rejections leave the record and its snapshots untouched):
+//! Rules (no rejection creates a snapshot):
 //!
 //! | Situation | Result |
 //! |---|---|
 //! | same (`token`, `event_seq`) and same content | [`Notified::Duplicate`] with the earlier snapshot number |
 //! | same `event_seq`, other content | [`NotifyRejection::Stale`] |
-//! | `event_seq` skips ahead | [`NotifyRejection::OutOfOrder`] until the missing number arrives |
+//! | `event_seq` skips ahead | [`NotifyRejection::OutOfOrder`]; consumes nothing, so the missing number is awaited |
 //! | `Ack` while `pending` or `unknown` | `running` |
 //! | `Ack` otherwise | [`Notified::NoChange`] |
 //! | `Progress` while `running` or `unknown` | `running` with new progress |
-//! | `Progress` while `pending` or terminal | [`NotifyRejection::InvalidTransition`] |
+//! | `Progress` while `pending` or terminal | [`NotifyRejection::InvalidTransition`], number consumed |
 //! | terminal outcome while `pending`, `running`, `unknown` | that terminal state |
 //! | the recorded terminal outcome again | [`Notified::NoChange`] |
-//! | another terminal outcome after a terminal one | [`NotifyRejection::ConflictingTerminal`] |
-//! | `cancelled` (no Cancel before `0.2.0`) | [`NotifyRejection::InvalidTransition`] |
+//! | another terminal outcome after a terminal one | [`NotifyRejection::ConflictingTerminal`], number consumed |
+//! | `cancelled` (no Cancel before `0.2.0`) | [`NotifyRejection::InvalidTransition`], number consumed |
 //! | unknown token | [`NotifyRejection::UnknownToken`] |
+//!
+//! An event rejected by the transition rules (`InvalidTransition`,
+//! `ConflictingTerminal`) consumes its `event_seq` (decided by Farhat on
+//! 2026-11-08, status Z6). `last_event_seq` advances, no snapshot is created,
+//! and the event and its rejection are logged. The same (`token`, `event_seq`)
+//! with the same content returns the same rejection later, even if the state
+//! has changed; other content on that number is `Stale`. The executor then
+//! continues with the next number.
 //!
 //! Whether stale and conflicting notifications are protocol errors or ordinary
 //! rejection outcomes is open (status §2.4, Z6); they are typed rejections here.
@@ -141,15 +149,19 @@ pub enum NotifyRejection {
     Unavailable,
 }
 
-/// Executor events already accepted for one execution, kept to recognise duplicates.
+/// Executor events numbered so far for one execution, kept to recognise repeats.
+///
+/// Every `event_seq` up to `last_event_seq` is consumed, whether the event was
+/// accepted or rejected by the transition rules. Each consumed number keeps its
+/// content and its outcome: the snapshot number it reported, or the rejection.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EventLog {
     last_event_seq: u64,
-    accepted: HashMap<u64, (EventKind, u64)>,
+    consumed: HashMap<u64, (EventKind, Result<u64, NotifyRejection>)>,
 }
 
 impl EventLog {
-    /// Highest `event_seq` accepted so far; 0 before any.
+    /// Highest `event_seq` consumed so far; 0 before any.
     pub fn last_event_seq(&self) -> u64 {
         self.last_event_seq
     }
@@ -177,27 +189,21 @@ fn record(op: &mut AcceptedOperation, snapshot: Report) -> u64 {
     sequence
 }
 
-/// Validates and applies one executor notification to `op`.
-pub(crate) fn apply_event(
-    op: &mut AcceptedOperation,
-    event: &ExecutorEvent,
-    now: Timestamp,
-) -> Result<Notified, NotifyRejection> {
-    let last = op.events.last_event_seq;
-    if event.event_seq <= last {
-        return match op.events.accepted.get(&event.event_seq) {
-            Some((kind, sequence)) if *kind == event.kind => Ok(Notified::Duplicate {
-                sequence: *sequence,
-            }),
-            _ => Err(NotifyRejection::Stale),
-        };
-    }
-    if event.event_seq != last + 1 {
-        return Err(NotifyRejection::OutOfOrder { expected: last + 1 });
-    }
+/// Records `event` as consumed with its outcome.
+fn consume(log: &mut EventLog, event: &ExecutorEvent, settled: Result<u64, NotifyRejection>) {
+    log.last_event_seq = event.event_seq;
+    log.consumed
+        .insert(event.event_seq, (event.kind.clone(), settled));
+}
 
+/// Decides the snapshot a valid-numbered event produces: `None` when it changes nothing.
+fn transition(
+    op: &AcceptedOperation,
+    kind: &EventKind,
+    now: Timestamp,
+) -> Result<Option<Report>, NotifyRejection> {
     let from = op.snapshot.state;
-    let next = match &event.kind {
+    Ok(match kind {
         EventKind::Ack if matches!(from, State::Pending | State::Unknown) => {
             let mut next = next_snapshot(op, now, State::Running);
             next.progress = Some(stage("started", "the executor confirmed the execution"));
@@ -238,9 +244,40 @@ pub(crate) fn apply_event(
             next.explanation.clone_from(explanation);
             Some(next)
         }
-    };
+    })
+}
 
-    op.events.last_event_seq = event.event_seq;
+/// Validates and applies one executor notification to `op`.
+///
+/// An event whose number is the next one is consumed even when the transition
+/// rules reject it: the rejection is stored and a resend with the same content
+/// returns it again. A skipped number is `OutOfOrder` and consumes nothing.
+pub(crate) fn apply_event(
+    op: &mut AcceptedOperation,
+    event: &ExecutorEvent,
+    now: Timestamp,
+) -> Result<Notified, NotifyRejection> {
+    let last = op.events.last_event_seq;
+    if event.event_seq <= last {
+        return match op.events.consumed.get(&event.event_seq) {
+            Some((kind, Ok(sequence))) if *kind == event.kind => Ok(Notified::Duplicate {
+                sequence: *sequence,
+            }),
+            Some((kind, Err(rejection))) if *kind == event.kind => Err(rejection.clone()),
+            _ => Err(NotifyRejection::Stale),
+        };
+    }
+    if event.event_seq != last + 1 {
+        return Err(NotifyRejection::OutOfOrder { expected: last + 1 });
+    }
+
+    let next = match transition(op, &event.kind, now) {
+        Ok(next) => next,
+        Err(rejection) => {
+            consume(&mut op.events, event, Err(rejection.clone()));
+            return Err(rejection);
+        }
+    };
     let (notified, sequence) = match next {
         Some(snapshot) => {
             let sequence = record(op, snapshot);
@@ -251,9 +288,7 @@ pub(crate) fn apply_event(
             (Notified::NoChange { sequence }, sequence)
         }
     };
-    op.events
-        .accepted
-        .insert(event.event_seq, (event.kind.clone(), sequence));
+    consume(&mut op.events, event, Ok(sequence));
     Ok(notified)
 }
 

@@ -94,7 +94,8 @@ fn refused_handoff_is_a_proven_failure_and_stays_failed() {
     assert!(snap.explanation.contains("before any side effect"));
     assert!(snap.explanation.contains("queue closed"));
 
-    // A failed execution is immutable: no progress, no other outcome.
+    // A failed execution is immutable: no progress, no other outcome. Number 1
+    // is consumed by the rejected progress, so the outcome takes number 2.
     assert_eq!(
         core.notify(&event(&token, 1, progress("late", None))),
         Err(NotifyRejection::InvalidTransition {
@@ -102,7 +103,7 @@ fn refused_handoff_is_a_proven_failure_and_stays_failed() {
         })
     );
     assert_eq!(
-        core.notify(&event(&token, 1, terminal(Outcome::Succeeded))),
+        core.notify(&event(&token, 2, terminal(Outcome::Succeeded))),
         Err(NotifyRejection::ConflictingTerminal {
             recorded: State::Failed
         })
@@ -172,8 +173,118 @@ fn progress_before_acknowledgement_is_an_invalid_transition() {
         })
     );
     assert_eq!(snapshot(&core, &id).sequence, 1);
-    // The rejected event consumed no number: event 1 can still be the ack.
-    assert!(core.notify(&event(&token, 1, EventKind::Ack)).is_ok());
+    // The rejected event consumed number 1 (decision Z6, 2026-11-08): another
+    // event with number 1 is stale, and the executor continues with 2.
+    assert_eq!(
+        core.notify(&event(&token, 1, EventKind::Ack)),
+        Err(NotifyRejection::Stale)
+    );
+    assert_eq!(
+        core.notify(&event(&token, 2, EventKind::Ack)),
+        Ok(Notified::Applied { sequence: 2 })
+    );
+    assert_eq!(snapshot(&core, &id).state, State::Running);
+}
+
+#[test]
+fn rejected_event_consumes_its_number_so_later_events_proceed() {
+    let core = acceptor();
+    let (id, token, _dispatch) = started(&core);
+    assert_eq!(
+        core.notify(&event(&token, 1, progress("early", None))),
+        Err(NotifyRejection::InvalidTransition {
+            from: State::Pending
+        })
+    );
+    assert_eq!(
+        core.notify(&event(&token, 2, EventKind::Ack)),
+        Ok(Notified::Applied { sequence: 2 })
+    );
+    assert_eq!(
+        core.notify(&event(&token, 3, progress("work", None))),
+        Ok(Notified::Applied { sequence: 3 })
+    );
+    assert_eq!(
+        core.notify(&event(&token, 4, terminal(Outcome::Succeeded))),
+        Ok(Notified::Applied { sequence: 4 })
+    );
+    assert_eq!(snapshot(&core, &id).state, State::Succeeded);
+}
+
+#[test]
+fn early_progress_during_handoff_does_not_wedge_the_execution() {
+    let core = acceptor();
+    let (id, token, dispatch) = started(&core);
+    // Progress arrives before the handoff records `running`.
+    assert_eq!(
+        core.notify(&event(&token, 1, progress("early", None))),
+        Err(NotifyRejection::InvalidTransition {
+            from: State::Pending
+        })
+    );
+    let mut executor = TestExecutor::new();
+    core.dispatch(dispatch, &mut executor).expect("recorded");
+    assert_eq!(snapshot(&core, &id).state, State::Running);
+    // The handoff consumed no number, so the executor's next event is 2.
+    assert_eq!(
+        core.notify(&event(&token, 2, progress("work", None))),
+        Ok(Notified::Applied { sequence: 3 })
+    );
+    assert_eq!(
+        core.notify(&event(&token, 3, terminal(Outcome::Succeeded))),
+        Ok(Notified::Applied { sequence: 4 })
+    );
+    assert_eq!(snapshot(&core, &id).state, State::Succeeded);
+}
+
+#[test]
+fn resending_a_rejected_event_returns_the_same_rejection() {
+    let core = acceptor();
+    let (id, token, dispatch) = started(&core);
+    let early = event(&token, 1, progress("early", None));
+    assert_eq!(
+        core.notify(&early),
+        Err(NotifyRejection::InvalidTransition {
+            from: State::Pending
+        })
+    );
+    let mut executor = TestExecutor::new();
+    core.dispatch(dispatch, &mut executor).expect("recorded");
+    core.notify(&event(&token, 2, progress("work", None)))
+        .unwrap();
+    let before = snapshot(&core, &id);
+    // The stored rejection is returned, although the state is now `running`.
+    assert_eq!(
+        core.notify(&early),
+        Err(NotifyRejection::InvalidTransition {
+            from: State::Pending
+        })
+    );
+    assert_eq!(snapshot(&core, &id), before);
+}
+
+#[test]
+fn conflicting_terminal_consumes_its_number() {
+    let core = acceptor();
+    let (id, token) = running_with(&core, Handoff::Acknowledged);
+    assert_eq!(
+        core.notify(&event(&token, 1, terminal(Outcome::Succeeded))),
+        Ok(Notified::Applied { sequence: 3 })
+    );
+    let failed = event(&token, 2, terminal(Outcome::Failed));
+    let rejection = NotifyRejection::ConflictingTerminal {
+        recorded: State::Succeeded,
+    };
+    assert_eq!(core.notify(&failed), Err(rejection.clone()));
+    // The same event again gets the same rejection, not Stale.
+    assert_eq!(core.notify(&failed), Err(rejection));
+    // Number 3 is the next one, so it is accepted without OutOfOrder.
+    assert_eq!(
+        core.notify(&event(&token, 3, EventKind::Ack)),
+        Ok(Notified::NoChange { sequence: 3 })
+    );
+    assert_eq!(snapshot(&core, &id).sequence, 3);
+    assert_eq!(snapshot(&core, &id).state, State::Succeeded);
 }
 
 #[test]
@@ -251,18 +362,19 @@ fn terminal_outcome_is_immutable_and_arrival_order_does_not_decide() {
             recorded: State::Succeeded
         })
     );
-    // The same outcome again, even with other detail, changes nothing.
+    // The same outcome again, even with other detail, changes nothing. Number 2
+    // was consumed by the conflict, so this uses number 3.
     let again = EventKind::Terminal {
         outcome: Outcome::Succeeded,
         result: Some(Value::Text("rewritten".to_string())),
         explanation: "rewritten".to_string(),
     };
     assert_eq!(
-        core.notify(&event(&token, 2, again)),
+        core.notify(&event(&token, 3, again)),
         Ok(Notified::NoChange { sequence: 3 })
     );
     assert_eq!(
-        core.notify(&event(&token, 3, progress("late", None))),
+        core.notify(&event(&token, 4, progress("late", None))),
         Err(NotifyRejection::InvalidTransition {
             from: State::Succeeded
         })
