@@ -38,5 +38,5 @@ pub use client::{
     Client, ClientConfig, FollowError, Followed, NoAnswer, ObserveItem, ObserveStream,
 };
 pub use keys::Keys;
-pub use server::{Server, ServerConfig};
+pub use server::{EventSink, Server, ServerConfig};
 pub use wire::{EndReason, ObserveFrame};

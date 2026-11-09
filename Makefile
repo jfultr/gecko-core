@@ -4,12 +4,14 @@
 
 CARGO ?= cargo
 
-.PHONY: all build test matrix fmt-check clippy smoke demo docs-check articles-check hooks check
+.PHONY: all build test matrix fmt-check clippy smoke demo lab-server lab-client docs-check articles-check hooks check
 
 all: check
 
+# The plain build leaves out operations-lab: it enables the test-support
+# features, which would otherwise be unified into the production crates.
 build:
-	$(CARGO) build --locked --workspace
+	$(CARGO) build --locked --workspace --exclude operations-lab
 	$(CARGO) build --locked --workspace --all-targets --all-features
 
 test:
@@ -31,6 +33,16 @@ smoke:
 
 demo:
 	$(CARGO) run --locked -p operations-zenoh --features test-support --example demo
+
+# Interactive lab stand (GKO-68): run each in its own terminal.
+# Options go in LAB_ARGS, for example: make lab-client LAB_ARGS=--via-proxy
+LAB_ARGS ?=
+
+lab-server:
+	$(CARGO) run --locked -q -p operations-lab -- server $(LAB_ARGS)
+
+lab-client:
+	$(CARGO) run --locked -q -p operations-lab -- client $(LAB_ARGS)
 
 docs-check:
 	python3 docs/check_links.py

@@ -48,6 +48,8 @@ Verified by `make demo` and `tests/scenario.rs` against Zenoh `1.10.2` on one ho
 
 Deliberately breaking the server to ignore `after` fails step 5, so the scenario detects that defect. Not measured or not done: more than one host, multi-hop routing, half-open links, restart of the Gecko, slow observers through Zenoh (covered at Core level), and load.
 
+For the interactive lab stand ([`tools/operations-lab`](../../tools/operations-lab/README.md)) the crate also offers: `ServerConfig::events`, an `EventSink` that receives one line per served request, stream end and dispatch failure (without it, dispatch failures still go to stderr); `ObserveStream::recv_timeout` and `is_finished`, so a caller can stop reading a stream; `Client::is_connected`; and `Proxy::start_at` with a fixed port and `Proxy::is_up`.
+
 The P1–P6 evidence matrix, the extra checks in `tests/matrix.rs` (`make matrix`), and the runbook are in the [validation page](../../docs-modules/operation/validation-0.1.0.md). `Server::set_observe_paused` is a test hook that stops Observe streams reading Core so an observer lags deterministically.
 
 ## Restricted deployment limits

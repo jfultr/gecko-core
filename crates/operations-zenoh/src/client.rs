@@ -88,8 +88,12 @@ impl ObserveStream {
             self.finished = true;
             return Err(NoAnswer("the stream closed without an end".to_string()));
         };
-        let frame = decode::<ObserveFrame>(&reply).inspect_err(|_| self.finished = true)?;
-        Ok(Some(match frame {
+        self.accept(&reply).map(Some)
+    }
+
+    fn accept(&mut self, reply: &Reply) -> Result<ObserveItem, NoAnswer> {
+        let frame = decode::<ObserveFrame>(reply).inspect_err(|_| self.finished = true)?;
+        Ok(match frame {
             ObserveFrame::Response { response } => {
                 self.finished = !matches!(response, ObserveResponse::Attached { .. });
                 ObserveItem::Response(response)
@@ -99,7 +103,36 @@ impl ObserveStream {
                 self.finished = true;
                 ObserveItem::End(reason)
             }
-        }))
+        })
+    }
+}
+
+impl ObserveStream {
+    /// Waits up to `wait` for the next frame. `Ok(None)` means nothing arrived
+    /// in time, or the stream is finished (see [`ObserveStream::is_finished`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`ObserveStream::recv`].
+    pub fn recv_timeout(&mut self, wait: Duration) -> Result<Option<ObserveItem>, NoAnswer> {
+        if self.finished {
+            return Ok(None);
+        }
+        match self.replies.recv_timeout(wait) {
+            Ok(None) => Ok(None),
+            Ok(Some(reply)) => self.accept(&reply).map(Some),
+            Err(_) => {
+                self.finished = true;
+                Err(NoAnswer("the stream closed without an end".to_string()))
+            }
+        }
+    }
+
+    /// Whether the stream has ended: an `end` frame, a final attach outcome,
+    /// or no answer.
+    #[must_use]
+    pub fn is_finished(&self) -> bool {
+        self.finished
     }
 }
 
@@ -158,6 +191,16 @@ impl Client {
     /// Closes the session.
     pub fn close(self) {
         let _ = self.session.close().wait();
+    }
+
+    /// Whether the session is connected to the Gecko now (to any router or peer).
+    ///
+    /// After a lost link, Zenoh reconnects on its own after a while; requests
+    /// sent before that get no answer.
+    #[must_use]
+    pub fn is_connected(&self) -> bool {
+        let info = self.session.info();
+        info.routers_zid().wait().next().is_some() || info.peers_zid().wait().next().is_some()
     }
 
     /// The keys this client uses.
