@@ -155,7 +155,7 @@ The user's group subscription sketch is `/gecko/213123/probe/*`: observe Probes 
 
 Progress and result publications preserve their association with an individual Probe run. The run identifier must distinguish repeated executions; placement in the key or publication content has not been selected. Immediate visibility of a discovered Device does not mean subsequent suitability checks have completed.
 
-The topic system must expose the check subject, state and progress, results and limitations, blockers, and remediation instructions. The check request API and observation namespace must be consistent; their exact relationship remains to be defined.
+The topic system must expose the check subject, state and progress, results and limitations, blockers, and remediation instructions. The check request API and observation namespace must be consistent; their exact relationship remains to be defined. This includes how a client that connects after startup finds runs that Gecko started itself, since Operation's Get and Observe need an `operation.id`; the open question is recorded in the [Operation decision status](../../docs-modules/operation/spec/status.md#2-open-decisions).
 
 **Open decisions**
 
