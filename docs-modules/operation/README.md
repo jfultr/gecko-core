@@ -4,7 +4,7 @@ An independent foundational Gecko module for starting and observing long-running
 
 Operation accepts or rejects a request, creates a distinct execution, publishes its progress and result, handles cancellation requests, and prevents duplicate execution after a lost response or a normal restart. The module has no knowledge of domain entities such as Probe, App, Block, or Line: domain executors integrate with it through a separate contract.
 
-Current version: [`0.1.0-dev`](VERSION). Start, Get, and Observe are implemented in memory, and a minimal Zenoh adapter is in [`crates/operations-zenoh`](../../crates/operations-zenoh/README.md); both are on PR #3, in review. Durable storage, Cancel, and authenticated executor identity are not built. This is the version of the contract and first prototype under development, not a completed release.
+Current version: [`0.1.0-dev`](VERSION). Start, Get, and Observe are implemented in memory, and a minimal Zenoh adapter is in [`crates/operations-zenoh`](../../crates/operations-zenoh/README.md); both are merged (PR #3 and PR #4). Durable storage, Cancel, and authenticated executor identity are not built. This is the version of the contract and first prototype under development, not a completed release.
 
 ## Contents
 
@@ -12,6 +12,7 @@ Current version: [`0.1.0-dev`](VERSION). Start, Get, and Observe are implemented
 - [Decision status](spec/status.md) — accepted decisions, open questions, and links to their original context.
 - [Working roadmap](spec/roadmap.md) — the accepted first-experiment order from `0.1.0` to `0.3.0`, later `0.x` targets, and directions through `3.0.0`; no release is implemented yet.
 - [Validation `0.1.0-dev`](validation-0.1.0.md) — P1–P6 evidence matrix, deterministic controls, operator runbook, gaps, and the unsigned human acceptance checklist.
+- [Lab runbook `0.1.0-dev`](lab-0.1.0.md) — manual cases L1–L13 on the interactive [lab stand](../../tools/operations-lab/README.md) and the table for their results (GKO-68).
 - [Security](spec/security.md) — required areas of security work and the admission gate for `1.0.0`.
 
 ## Code

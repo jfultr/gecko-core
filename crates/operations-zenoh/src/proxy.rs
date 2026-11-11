@@ -22,7 +22,16 @@ impl Proxy {
     ///
     /// The I/O error binding the listener.
     pub fn start(upstream: &str) -> io::Result<Self> {
-        let listener = TcpListener::bind("127.0.0.1:0")?;
+        Self::start_at(0, upstream)
+    }
+
+    /// Starts a proxy on local `port` (0 picks a free one) forwarding to `upstream`.
+    ///
+    /// # Errors
+    ///
+    /// The I/O error binding the listener, for example a port in use.
+    pub fn start_at(port: u16, upstream: &str) -> io::Result<Self> {
+        let listener = TcpListener::bind(("127.0.0.1", port))?;
         let port = listener.local_addr()?.port();
         let up = Arc::new(AtomicBool::new(true));
         let stop = Arc::new(AtomicBool::new(false));
@@ -70,6 +79,11 @@ impl Proxy {
         for link in self.links.lock().expect("links").drain(..) {
             let _ = link.shutdown(Shutdown::Both);
         }
+    }
+
+    /// Whether the link is up (connections are accepted).
+    pub fn is_up(&self) -> bool {
+        self.up.load(Ordering::SeqCst)
     }
 
     /// Accepts connections again.

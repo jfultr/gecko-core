@@ -1,0 +1,16 @@
+[package]
+name = "operations-lab"
+version = "0.1.0-dev"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Gecko Operation module: interactive lab stand, server and client terminal UIs over Zenoh (GKO-68). Test tool, not for production."
+
+[dependencies]
+# The lab needs the permissive test policy, the proxy and the test hooks.
+operations = { path = "../../crates/operations", features = ["test-support"] }
+operations-zenoh = { path = "../../crates/operations-zenoh", features = ["test-support"] }
+ratatui = "0.30.2"
+
+[lints]
+workspace = true

@@ -32,6 +32,79 @@ pub struct ServerConfig {
     /// Test hook: wait this long after committing a Start before replying, to
     /// make a caller time out on an accepted request.
     pub start_reply_delay: Duration,
+    /// Where to send a one-line description of each served request, stream
+    /// end, and dispatch failure. Without it, only dispatch failures are
+    /// reported, on stderr.
+    pub events: Option<EventSink>,
+}
+
+/// Receives the server's one-line event descriptions (see [`ServerConfig::events`]).
+///
+/// Called from the serving threads; it must not block for long.
+#[derive(Clone)]
+pub struct EventSink(Arc<dyn Fn(String) + Send + Sync>);
+
+impl EventSink {
+    /// A sink that passes each line to `f`.
+    pub fn new(f: impl Fn(String) + Send + Sync + 'static) -> Self {
+        Self(Arc::new(f))
+    }
+}
+
+impl std::fmt::Debug for EventSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("EventSink")
+    }
+}
+
+/// The serde name of a value, such as `identifier_conflict`.
+fn name<T: serde::Serialize>(value: &T) -> String {
+    match serde_json::to_value(value) {
+        Ok(serde_json::Value::String(text)) => text,
+        _ => "?".to_string(),
+    }
+}
+
+fn describe_start(response: &StartResponse) -> String {
+    match response {
+        StartResponse::Accepted { operation, .. } => format!("accepted {}", operation.id),
+        StartResponse::Rejected(rejection) => format!("rejected({})", name(&rejection.code)),
+        StartResponse::InvalidInput(error) => format!("invalid_input: {}", error.message),
+        StartResponse::Error(error) => format!("error: {}", error.message),
+    }
+}
+
+fn describe_get(response: &GetResponse) -> String {
+    match response {
+        GetResponse::Report(report) => {
+            format!("report {} seq {}", name(&report.state), report.sequence)
+        }
+        GetResponse::Unavailable(_) => "unavailable".to_string(),
+        GetResponse::InvalidInput(error) => format!("invalid_input: {}", error.message),
+        GetResponse::Error(error) => format!("error: {}", error.message),
+    }
+}
+
+fn describe_observe(response: &ObserveResponse) -> String {
+    match response {
+        ObserveResponse::Attached {
+            current,
+            sequence,
+            gap,
+        } => {
+            let mut text = format!("attached at seq {sequence}");
+            if current.is_none() {
+                text.push_str(", nothing redelivered");
+            }
+            if let Some(gap) = gap {
+                text.push_str(&format!(", gap {}..={}", gap.first_missed, gap.last_missed));
+            }
+            text
+        }
+        ObserveResponse::Unavailable(_) => "unavailable".to_string(),
+        ObserveResponse::InvalidInput(error) => format!("invalid_input: {}", error.message),
+        ObserveResponse::Error(error) => format!("error: {}", error.message),
+    }
 }
 
 impl ServerConfig {
@@ -44,6 +117,7 @@ impl ServerConfig {
             observe_lease: Duration::from_secs(20),
             max_observers: 64,
             start_reply_delay: Duration::ZERO,
+            events: None,
         }
     }
 }
@@ -147,6 +221,7 @@ where
             while let Ok(query) = observe.recv() {
                 if s.observers.fetch_add(1, Ordering::SeqCst) >= s.config.max_observers {
                     s.observers.fetch_sub(1, Ordering::SeqCst);
+                    s.event(|| "observe refused: too many observers".to_string());
                     let response = ObserveResponse::Error(ServiceError {
                         message: "too many observers".to_string(),
                     });
@@ -228,12 +303,22 @@ where
             .is_ok()
     }
 
+    /// Reports one event line to the configured sink, if any.
+    fn event(&self, line: impl FnOnce() -> String) {
+        if let Some(sink) = &self.config.events {
+            (sink.0)(line());
+        }
+    }
+
     fn serve_start(&self, query: &Query) {
         let parsed = match query.payload() {
             None => Err("the request has no payload".to_string()),
             Some(payload) => serde_json::from_slice::<StartRequest>(&payload.to_bytes())
                 .map_err(|e| format!("malformed Start request: {e}")),
         };
+        let request_id = parsed
+            .as_ref()
+            .map_or_else(|_| "-".to_string(), |r| r.request_id.to_string());
         let response = match parsed {
             Err(message) => StartResponse::InvalidInput(input_error("payload", message)),
             Ok(request) => {
@@ -254,7 +339,11 @@ where
                             }
                             _ => "",
                         };
-                        eprintln!("operations-zenoh: dispatch failed: {error:?}{note}");
+                        let line = format!("dispatch failed: {error:?}{note}");
+                        match &self.config.events {
+                            Some(sink) => (sink.0)(line),
+                            None => eprintln!("operations-zenoh: {line}"),
+                        }
                     }
                 }
                 outcome.response
@@ -262,9 +351,17 @@ where
         };
         let delay = self.start_delay_ms.load(Ordering::SeqCst);
         if delay > 0 {
+            self.event(|| format!("start {request_id}: holding the reply for {delay} ms"));
             thread::sleep(Duration::from_millis(delay));
         }
-        self.send(query, &response);
+        let sent = self.send(query, &response);
+        self.event(|| {
+            format!(
+                "start {request_id} -> {}{}",
+                describe_start(&response),
+                if sent { "" } else { " (reply not sent)" }
+            )
+        });
     }
 
     fn serve_get(&self, query: &Query) {
@@ -278,10 +375,24 @@ where
             )),
         };
         self.send(query, &response);
+        self.event(|| {
+            format!(
+                "get {} -> {}",
+                query.key_expr().as_str(),
+                describe_get(&response)
+            )
+        });
     }
 
     fn serve_observe(&self, query: &Query) {
         let reject = |response: ObserveResponse| {
+            self.event(|| {
+                format!(
+                    "observe {} -> {}",
+                    query.selector(),
+                    describe_observe(&response)
+                )
+            });
             self.send(query, &ObserveFrame::Response { response });
         };
         let Some(operation_id) = self.config.keys.operation_id(query.key_expr().as_str()) else {
@@ -308,6 +419,17 @@ where
             },
         );
         let attached = matches!(outcome.response, ObserveResponse::Attached { .. });
+        self.event(|| {
+            format!(
+                "observe {operation_id} after={} -> {}",
+                after_sequence.map_or_else(|| "-".to_string(), |a| a.to_string()),
+                describe_observe(&outcome.response)
+            )
+        });
+        let end = |reason: EndReason| {
+            self.send(query, &ObserveFrame::End { reason });
+            self.event(|| format!("observe {operation_id}: stream ended {}", name(&reason)));
+        };
         if !self.send(
             query,
             &ObserveFrame::Response {
@@ -319,12 +441,7 @@ where
         }
         let Some(stream) = outcome.stream else {
             // Attached to a terminal execution: nothing more will be published.
-            self.send(
-                query,
-                &ObserveFrame::End {
-                    reason: EndReason::Terminal,
-                },
-            );
+            end(EndReason::Terminal);
             return;
         };
         let lease_ends = Instant::now() + self.config.observe_lease;
@@ -343,8 +460,8 @@ where
             };
             let frame = match poll {
                 Poll::Snapshot(report) => ObserveFrame::Snapshot { report },
-                Poll::Ended(end) => {
-                    self.send(query, &ObserveFrame::End { reason: end.into() });
+                Poll::Ended(reason) => {
+                    end(reason.into());
                     return;
                 }
                 Poll::Empty => {
@@ -352,19 +469,16 @@ where
                         return;
                     }
                     if Instant::now() >= lease_ends {
-                        self.send(
-                            query,
-                            &ObserveFrame::End {
-                                reason: EndReason::Lease,
-                            },
-                        );
+                        end(EndReason::Lease);
                         return;
                     }
                     continue;
                 }
             };
             if !self.send(query, &frame) {
-                return; // the observer is gone; dropping the stream detaches it
+                // The observer is gone; dropping the stream detaches it.
+                self.event(|| format!("observe {operation_id}: observer gone"));
+                return;
             }
         }
     }
