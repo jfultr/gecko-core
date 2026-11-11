@@ -146,7 +146,7 @@ For GKO-68 and GKO-69. Unchecked until Farhat runs it.
 
 - [ ] `make check` passes on the reviewer's checkout.
 - [ ] `make demo`: the table in section 4 matches, including the cut-link step.
-- [ ] The [lab runbook](lab-0.1.0.md) cases L1–L13 are run on the interactive stand and their results recorded.
+- [x] The [lab runbook](lab-0.1.0.md) cases L1–L13 are run on the interactive stand and their results recorded.
 - [ ] Each package P1–P6 has a row in section 2 the reviewer accepts as evidence.
 - [ ] The gaps in section 5 are acceptable for `0.1.0`.
 - [ ] Choices O1–O7 in [decision status §2.5](spec/status.md#25-implementation-choices-from-gko-64-gko-65-and-gko-66) are confirmed or corrected.
