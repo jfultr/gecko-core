@@ -1,30 +1,30 @@
 # Gecko / Probe: Architectural Development Plan
 
-October 28, 2026 · step D2 · status: A1 accepted; parts of A3, B1, B2, C3, D2, and F3 accepted; other decisions open
+November 23, 2026 · step D2 · status: A1 accepted; parts of A2, A3, B1, B2, C1, C3, D1, D2, and F3 accepted; other decisions open
 
 [Model](model.md) · [Scenario](scenario.md) · [Mesh / App requirements](../1-mesh-app/lower-level-requirements.md) · [Development cycle](../development-cycle.md)
 
 ## D2 Progress
 
-Updated October 28, 2026. Of 21 plan items, **1 is accepted at the model level, 6 are partially accepted, and 14 are open**. This tracks architectural development; implementation and experimental validation are recorded on the upward pass.
+Updated November 23, 2026. Of 21 plan items, **1 is accepted at the model level, 9 are partially accepted, and 11 are open**. This tracks architectural development; implementation and experimental validation are recorded on the upward pass.
 
 “Partially accepted” means part of a decision is already established in the model and remaining questions are listed in [§4.1](#41-accepted-parts-of-decisions). “Open” means the item is not yet fully developed and no separate decision for it is recorded in this plan; previously accepted model rules and Mesh / App requirements still apply.
 
 | ID | Area | Status | Completed work and next work |
 |---|---|---|---|
 | A1 | Probe and Capability | Accepted at the model level | Separate diagnostic tasks from environment possibilities; definitions, examples, and references reconciled. Detailed Capability contracts remain in A2, C1–C2, and D1 |
-| A2 | Entities and their lifecycle | Open | Extend the accepted Probe/run/Capability distinction into a complete entity map, identifiers, and lifecycles |
+| A2 | Entities and their lifecycle | Partially accepted | Fact is separate from a run finding; Probe is separate from its implementation; a Probe run uses `operation.id`; a supported Probe can check a client-supplied Check Target before discovery or registration; Check Input and Fact Subject have distinct roles and accepted names. Complete remaining identifiers, bindings, and lifecycles |
 | A3 | Component responsibility | Partially accepted | Probe checks and publishes findings; Gecko policy selects subsequent checks; common Operation mechanics are a foundational module. Allocate remaining executor and adapter responsibilities |
 | B1 | Run selection and relationships | Partially accepted | Policy based on applicability rules selected. Initial checks, condition form, run relationships, limits, and protection against cycles and repeats remain |
 | B2 | Common execution contract | Partially accepted | Preliminary and client runs have equal standing. Refine combinations of results, errors, blockers, and cancellation |
 | B3 | Concurrency and resources | Open | Define permitted concurrency, waiting or rejection, and load limits |
 | B4 | Gecko shutdown and restart | Open | Specify cessation, resuming observation, and establishing actual run and resource state |
-| C1 | Facts and environment picture | Open | Define a fact contract and responsibility for publishing and updating the environment picture and advertised Capabilities |
+| C1 | Facts and environment picture | Partially accepted | Fact is separate from a run finding; its Fact Subject need not be the Check Target or Search Scope of the run. Define remaining fact contract, publication responsibility, and environment picture and Capability updates |
 | C2 | Fact applicability and staleness | Open | Define result comparison, replacement, conflicts, and effects on Capability availability when conditions change |
 | C3 | Gecko state | Partially accepted | Reflects all current Probe work. Refine waiting, child work, and uncertainty |
 | C4 | Result retention | Open | Separate retention periods and responsibilities for facts, reports, artifacts, and cache |
-| D1 | Probe catalog and Capability descriptions | Open | Define client descriptions of checks, subjects, and parameters, considering applicability conditions; distinguish the Probe catalog from advertised Capabilities |
-| D2 | Run invocation and management | Partially accepted | Preliminary runs use the common management interface. Complete the acceptance, reading, observation, cancellation, and retry profile |
+| D1 | Probe catalog and Capability descriptions | Partially accepted | Supported Probes can accept a client-supplied Check Target without prior discovery or registration. Define descriptions of supported Check Inputs and parameters, applicability, validation, and the distinction from advertised Capabilities |
+| D2 | Run invocation and management | Partially accepted | Preliminary runs use the common management interface; `operation.id` identifies each Probe run. Complete the acceptance, reading, observation, cancellation, and retry profile |
 | D3 | Late connection and reconnection | Open | Define reconciliation of reading and subscribing, snapshot order, and disclosure of gaps |
 | E1 | Minimum check set | Open | Select domain profiles for discovery, access or environment, and load |
 | E2 | Lower-level contracts | Open | Define executor and adapter operations, resource ownership, and release |
@@ -157,16 +157,19 @@ A short decision record is sufficient: **ID → question → significant alterna
 
 ### 4.1. Accepted Parts of Decisions
 
-On October 27–28, 2026, rules for [ordinary preliminary runs and Gecko reconnaissance policy](model.md#34-preliminary-probes-and-check-chains) were accepted at the model level. On October 28, the [Probe/Capability distinction](model.md#21-capability-and-probe) was also accepted as A1. Reasons and considered alternatives are in [decision history](history.md). A partial decision does not close the entire block.
+On October 27–28, 2026, rules for [ordinary preliminary runs and Gecko reconnaissance policy](model.md#34-preliminary-probes-and-check-chains) were accepted at the model level. On October 28, the [Probe/Capability distinction](model.md#21-capability-and-probe) was accepted as A1. On November 8, the [Fact/report distinction](model.md#32-data-blockers-and-reports), [Probe/implementation distinction](model.md#31-purpose-and-invocation-form), and [Probe run identity](model.md#36-probe-in-geckos-zenoh-api) were accepted as parts of A2. On November 21, [client-supplied subjects](model.md#36-probe-in-geckos-zenoh-api) were accepted as parts of A2 and D1. On November 23, [what a run checks and what a Fact describes](model.md#32-data-blockers-and-reports) were distinguished as parts of A2 and C1, then named Check Input, Check Target, Search Scope, and Fact Subject. Reasons and considered alternatives are in [decision history](history.md). A partial decision does not close the entire block.
 
 | ID | Accepted at the model level | Remaining open questions |
 |---|---|---|
 | A1 | Probe is a diagnostic task, Capability is an environment execution possibility, and Probe run is an execution through Operation; results can support or refute availability without a required one-to-one mapping; vocabulary is reconciled | None within the terminology decision. Identifiers and lifecycles remain in A2, evidence and publication/freshness rules in C1–C2, and client descriptions in D1 |
+| A2 | Fact is separate from a finding in an Operation Report, independently accessible and linked to run evidence; Probe is the client-addressable check contract, separate from its internal implementation; Probe run uses `operation.id` in Gecko and Probe context; a supported Probe can check a client-supplied Check Target before discovery or registration; Check Input and Fact Subject have different roles, with accepted domain names | Remaining entity boundaries and lifecycles; supplied-object representation, validation, identity, and matching; implementation identity, binding, compatibility, and attribution; Fact identity and which findings become Facts; publication, applicability, freshness, revision, storage, and retention in C1–C4 |
 | A3 | Probe performs a domain check and publishes findings; Gecko's reconnaissance policy selects and starts subsequent checks; common Operation mechanics are outside Probe domain logic | Remaining responsibility map for Gecko, Probe, executors, and adapters |
 | B1 | Gecko startup may automatically initiate ordinary Probe chains; available Probes describe necessary facts and applicability conditions; as results appear, Gecko policy selects subsequent checks considering these conditions and diagnostic context; Probes do not invoke each other directly; run origin is preserved | Initial Probe selection, concrete applicability condition form, run relationships, diagnostic depth and load, protection against infinite chains and repeats |
 | B2 | Preliminary and client runs share an execution, observation, results, and cancellation contract; a user can request cancellation of a preliminary check and start additional chains | Complete contract for results, errors, blockers, and cancellation together, cancellation propagation to child runs, and partial results after cancellation |
+| C1 | A Fact's Fact Subject need not equal the run's Check Target or Search Scope; a discovery run can yield Facts about several objects | Fact representation and source association, which findings become Facts, publication and update responsibility, conditions and limitations, and Capability evidence references |
 | C3 | Gecko state reflects current Probe work regardless of initiator; cancelling and adding checks change current work without a separate preliminary-check completion stage | Exact waiting, child work, and uncertainty semantics; consistency with B3–B4 |
-| D2 | Preliminary runs are accessible through the common run management interface | Full acceptance, identity, reading, observation, and cancellation profile, `request_id` conflict, and unavailable reports |
+| D1 | A supported Probe may accept a client-supplied subject without prior discovery or registration | Catalog descriptions of supported subjects and parameters, applicability and validation, and Capability descriptions and evidence references |
+| D2 | Preliminary runs are accessible through the common run management interface; `operation.id` is the Probe run ID in Gecko and Probe context | Full acceptance, addressing, reading, observation, and cancellation profile, `request_id` conflict, and unavailable reports |
 
 Scenario review: [a finding satisfies the next check's conditions, and the user changes current work](scenario.md). At U2, validate in code that Gecko policy can start an applicable check from a partial Probe result, preliminary runs use the common observation and cancellation interface, and client-added chains appear in Gecko state under the same rules. This is a model decision without an experiment so far.
 

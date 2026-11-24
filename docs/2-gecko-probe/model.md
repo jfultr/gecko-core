@@ -1,6 +1,6 @@
 # Gecko and Probe
 
-Version 0.16 · November 1, 2026
+Version 0.22 · November 23, 2026
 
 [Glossary](../0-concepts/index.md) · [Mesh / App](../1-mesh-app/model.md) · [Scenario](scenario.md) · [D2 plan](work-plan.md) · [Line / Point / Edge / View](../4-line-point-edge-view/model.md) · [Block / Anchor](../3-block-anchor/model.md)
 
@@ -55,6 +55,8 @@ Creation and configuration are distinct from execution at a selected location. T
 
 **A Probe is a separately addressable diagnostic task for discovery, validation, search, testing, and obtaining useful artifacts or cache.** Its main purpose is to identify problems, blocking conditions, and bottlenecks promptly, either in advance or on request, and provide results to Gecko and an agent.
 
+**Accepted (A2, partial):** a Probe is the client-addressable description and invocation contract of a diagnostic task. Its implementation is a separate internal concept bound to the Probe to perform the check; clients invoke the Probe rather than its implementation. This distinction does not require multiple implementations per Probe, runtime replacement, or a client-facing implementation catalog. Implementation identity and version, binding lifecycle, compatibility, selection, and attribution in run evidence remain open in A2, D1, and E2.
+
 The working interaction form is **one invocation → observable progress → results as data, artifacts, or cache**. A Probe run has a bounded goal and a clear end; specific durations, limits, and interruption rules remain undefined.
 
 A result must explain what was checked, what was obtained, and how fresh the facts are. Artifacts and cache can be used by subsequent checks. Retention, reuse, freshness, and invalidation rules remain to be defined.
@@ -72,13 +74,30 @@ A Probe invocation can produce more than retained facts. Possible results in the
 
 These result types can coexist: discovering a blocker does not make data already obtained useless. Result schemas and rules for representing partially completed work remain open.
 
+**Accepted (A2, partial):** a Fact is a separate logical domain entity from a finding in an Operation Report. A report finding records what a particular Probe run reported; an available Fact can be accessed and referenced independently of that report and retains a link to the supporting run evidence. Other checks and clients can use an available Fact as input or evidence under its applicable conditions. Reuse of a Fact does not replace execution of an explicitly requested new Probe run.
+
+Which findings become Facts, Fact identity, publication responsibility, applicability, freshness, revision or replacement, storage, and retention remain open in A2 and C1–C4. This logical distinction does not select a storage mechanism or make a Fact valid indefinitely.
+
+**Accepted (A2/C1, partial):** what a Probe run was asked to check and what a resulting Fact describes have different roles. A run may check a particular object or examine a wider area. A discovery run may produce Facts about several objects found within that area; the object each Fact describes need not be the run's checked object or area.
+
+**Accepted (A2/C1, partial):** the following four English names are Probe domain terms for the agreed roles. They do not prescribe API field names, serialization, or reference formats.
+
+| Domain term | Meaning in the Probe domain |
+|---|---|
+| **Check Input** | What a Probe run is asked to check; it may include a Check Target or Search Scope and applicable parameters. The Probe contract defines supported inputs. |
+| **Check Target** | A particular object supplied for a focused check, such as a known Device or a client-supplied source. |
+| **Search Scope** | The area or set examined by a discovery check, which may yield findings about multiple objects. |
+| **Fact Subject** | The object about which an independently available Fact makes its statement. |
+
+The Probe-specific mapping of Check Input to the common Operation Report's `subject` field remains open, as do reference formats, object identity, and matching across runs. A finding remains information reported by a particular Probe run, including partial information before completion; its exact representation is still open.
+
 **Operation Report: a Probe run.** Invocation, intermediate messages, and the final outcome use the common [Operation contract](../../docs-modules/operation/spec/model.md) core. A report is associated with a particular Probe run, rather than just a check type. This is a working form of message content; exact structures and keys are refined separately.
 
-Common execution mechanics belong to the [Operation foundational module](../core-modules.md#core-op-boundary-and-work). Probe defines the check's subject, results, constraints, and blockers; Gecko's reconnaissance policy selects subsequent checks. The common core does not depend on these domain rules.
+Common execution mechanics belong to the [Operation foundational module](../core-modules.md#core-op-boundary-and-work). Probe defines what it checks, its results, constraints, and blockers; Gecko's reconnaissance policy selects subsequent checks. The common core does not depend on these domain rules.
 
 | Report field | What a Probe run records |
 |---|---|
-| `operation`, `subject` | Run identity, Gecko and Probe, and check subject: a Device, environment, implementation, or another supported subject |
+| `operation`, `subject` | Run identity and the common Operation Report's subject. The Probe profile must define how a Check Target or Search Scope appears here; this field is not assumed to equal the Fact Subject of every resulting Fact |
 | `sequence`, `reported_at` | Number of this run's full snapshot and its generation time; an older or duplicate snapshot does not replace a newer one; order follows the number rather than clocks on different Gecko instances |
 | `context` | Parameters, inputs, run conditions, and relationships to dependencies used; App and revision only when related |
 | `state`, `progress` | `running`, `succeeded`, `failed`, `cancelled`, or `unknown` under the [module lifecycle](../../docs-modules/operation/spec/model.md#7-lifecycle-and-cancellation), the current stage and available progress; a blocker preventing continuation without an external fix ends the attempt with `failed` rather than leaving it waiting to resume |
@@ -139,13 +158,15 @@ The preliminary model does not itself approve the Mesh / App contract or establi
 
 At the Mesh level before Build, each Gecko can be addressed directly to request individual checks through its Zenoh API (edge communication). A Probe must appear explicitly in this API as a separately addressable entity. Addressing a check preserves its association with a particular Gecko and Probe; it cannot be reduced to an anonymous check operation on Gecko itself.
 
-**Accepted:** a Probe and an individual Probe run are distinct. Each run has its own identity in the context of a particular Gecko and Probe. A newly accepted request creates a distinguishable run. Parameters, state, progress, results, artifacts, and blockers belong to the corresponding run. Retrying the same request with the previous `request_id` returns the previous operation without new execution under the [module identity contract](../../docs-modules/operation/spec/model.md#4-requests-identity-and-public-api). This decision does not determine whether several runs can execute concurrently.
+**Accepted (A2/D1, partial):** when a Probe supports a client-supplied Check Target, a client can invoke it for an object that Gecko has not previously discovered or registered. For example, a supported camera check can receive a manually supplied RTSP source. Prior discovery or registration is not a general prerequisite for direct Probe invocation. This does not require every Probe to accept arbitrary Check Targets. The representation and validation of a supplied Check Target, any later persistent identity, and matching it to discovered objects remain open.
+
+**Accepted:** a Probe and an individual Probe run are distinct. The run's identifier is the `operation.id` assigned on acceptance; no separate `probe_run_id` is defined. A reference to a run includes its Gecko and Probe context. A newly accepted request creates a distinguishable run. Parameters, state, progress, results, artifacts, and blockers belong to the corresponding run. Retrying the same request with the previous `request_id` returns the previous operation without new execution under the [module identity contract](../../docs-modules/operation/spec/model.md#4-requests-identity-and-public-api). `request_id` identifies the caller's request for retry purposes, not the Probe run. This decision does not determine whether several runs can execute concurrently, the global uniqueness scope of `operation.id`, or a concrete address format.
 
 | Addressing level | Meaning |
 |---|---|
 | **Gecko** | The particular instance providing the API |
 | **Probe** | A separately addressable diagnostic task |
-| **Probe run** | A particular task execution with its own identity, parameters, progress, and result |
+| **Probe run** | A particular task execution identified by `operation.id` in its Gecko and Probe context, with its own parameters, progress, and result |
 
 Run identity distinguishes repeated check results. An explicit new request performs the check again rather than substituting a previously cached result for execution. Retrying an accepted request with the same `request_id` is not a new run. Cache in the preliminary model means useful artifacts of Gecko's own work; it does not mean a mechanism for answering an explicit check request. Cache details belong to Gecko / Probe internals. A run's own identity does not define result retention time or require indefinite history storage.
 
@@ -153,7 +174,7 @@ Run identity distinguishes repeated check results. An explicit new request perfo
 
 The user's group subscription sketch is `/gecko/213123/probe/*`: observe Probes of Gecko instance `213123`. This illustrates a logical subscription scope, rather than an approved Zenoh key syntax. Concrete keys and the subscription pattern must be reconciled with namespace nesting.
 
-Progress and result publications preserve their association with an individual Probe run. The run identifier must distinguish repeated executions; placement in the key or publication content has not been selected. Immediate visibility of a discovered Device does not mean subsequent suitability checks have completed.
+Progress and result publications preserve their association with an individual Probe run through `operation.id` and its Gecko and Probe context. Placement in the key or publication content has not been selected. Immediate visibility of a discovered Device does not mean subsequent suitability checks have completed.
 
 The topic system must expose the check subject, state and progress, results and limitations, blockers, and remediation instructions. The check request API and observation namespace must be consistent; their exact relationship remains to be defined. This includes how a client that connects after startup finds runs that Gecko started itself, since Operation's Get and Observe need an `operation.id`; the open question is recorded in the [Operation decision status](../../docs-modules/operation/spec/status.md#2-open-decisions).
 
@@ -162,7 +183,7 @@ The topic system must expose the check subject, state and progress, results and 
 | Open questions | Decision outcome |
 |---|---|
 | What is the concrete Zenoh key and group subscription format in the Gecko → Probe → run namespace? How are available Probes discovered and related to checked Devices, environments, implementations, or connections? | A scheme for keys, Probe discovery, and check-subject references. Association with a particular Gecko, separate Probe addressing, distinct runs, and progress publication are already defined. |
-| How is an individual check request addressed, a run identifier issued, and observation topics associated with it? Are concurrent runs of one Probe permitted, and under what execution rules? | A Gecko → Probe → run addressing scheme, request mechanism, and concurrency rules. Distinct runs are accepted; identifier and key formats remain open. |
+| How is an individual check request addressed, and how are observation topics associated with its `operation.id`? Are concurrent runs of one Probe permitted, and under what execution rules? | A Gecko → Probe → run addressing scheme, request mechanism, and concurrency rules. Run identity uses `operation.id` with Gecko and Probe context; concrete address and key formats remain open. |
 | How are state, progress, data, limitations, artifact and cache references, blockers, and agent instructions organized within a Probe namespace? How is result freshness conveyed? | Topic and message schemas allowing a subscriber to interpret a particular check's result. |
 
 Concrete keys and formats have not been selected. This decision establishes check and observation addressability without defining the internal Probe tree structure or Build protocol.
